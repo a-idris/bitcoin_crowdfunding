@@ -1,0 +1,29 @@
+doctype html
+html
+    head
+        link(rel="stylesheet", type="text/css", href="stylesheets/main.css")
+        title bitcoin crowdfunding - wallet
+    body
+        nav
+            a(href="/") Home
+            a(href="/wallet") Wallet
+        h1 wallet
+        form(action="#", method="post", id="payment_form")
+            p private key 
+            input(type="text", name="private_key")
+            p destination address
+            input(type="text", name="destination_addr")
+            p amount
+            input(type="text", name="amount")
+            p
+            input(type="submit")
+
+        div
+            button#genAddress Generate Random Address
+            p#address 
+
+        script(src="scripts/bundle.js")
+
+
+
+
