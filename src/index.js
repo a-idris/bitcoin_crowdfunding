@@ -30,20 +30,11 @@ app.post('/pay', function(req, res) {
     res.render('wallet')
 });
 
+var bitcoin = require('./bitcoin');
+
 app.post('/transmit', function(req, res) {
-    raw_tx = '';
-
-    //use bodyparser.raw()
-    req.on('data', function(chunk) {
-        raw_tx += chunk;
-    });
-
-    req.on('end', function() {
-        send_to_bitcoind(raw_tx, function(err, success) {
-            ;
-        });
-        res.render(wallet);
-    });
+    console.log(req.body.tx_hex);
+    bitcoin.decode(req.body.tx_hex, );
 });
 
 app.listen(3000, function() {
