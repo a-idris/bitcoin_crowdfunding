@@ -8,7 +8,7 @@ html
             a(href="/") Home
             a(href="/wallet") Wallet
         h1 wallet
-        form(action="#", method="post", id="payment_form")
+        form(action="/transmit", method="post", id="payment_form")
             p private key 
             input(type="text", name="private_key")
             p destination address
@@ -16,6 +16,7 @@ html
             p amount
             input(type="text", name="amount")
             p
+            input(type="hidden", name="rawtx")
             input(type="submit")
 
         div

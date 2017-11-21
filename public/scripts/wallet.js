@@ -25,7 +25,7 @@ var form = document.getElementById('payment_form');
 
 
 form.addEventListener('submit', function(event) {
-    event.preventDefault();
+    // event.preventDefault();
     var sender_priv_key = bitcore.PrivateKey.fromString(form.elements['private_key'].value);
     var sender_addr = sender_priv_key.toAddress(network_type); 
     var destination_addr = bitcore.Address.fromString(form.elements['destination_addr'].value, network_type);
@@ -52,7 +52,9 @@ form.addEventListener('submit', function(event) {
     console.log("ERR: " + result);
     if (result === true) {
         var tx_string = transaction.serialize();
-        sendToServer(tx_string);        
+        form.elements['rawtx'].value = tx_string;
+        console.log(form);
+        // sendToServer(tx_string);        
     } else {
         //display error messages
         console.log(result);
@@ -66,7 +68,19 @@ function sendToServer(transaction) {
     //set post value: tx_hex
     var params = "tx_hex="+transaction;
     xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            var tx = JSON.parse(xhr.responseText);
+            console.log(tx);
+            form.reset();
+        }
+    }
     xhr.send(params)
+}
+
+
+function redirect(tx_json) {
+    
 }
 
 function satoshiToBitcoin(satoshis) {

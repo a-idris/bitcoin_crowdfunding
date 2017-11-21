@@ -1,6 +1,8 @@
 var express = require('express');
 var path = require('path');
 var body_parser = require('body-parser');
+var bitcoin = require('./bitcoin');
+
 var app = express();
 
 //templating setup
@@ -10,6 +12,7 @@ app.set('view engine', 'pug')
 //middleware func to serve static content from public directory 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+//middleware to parse http body
 app.use(body_parser.json());
 app.use(body_parser.urlencoded({extended : true}));
 
@@ -21,20 +24,12 @@ app.get('/wallet', function(req, res) {
     res.render('wallet.pug');
 });
 
-app.post('/pay', function(req, res) {
-
-    if (req.body['amount']) {
-        console.log("amountVAL: " + req.body['amount']);
-    }
-
-    res.render('wallet')
-});
-
-var bitcoin = require('./bitcoin');
-
 app.post('/transmit', function(req, res) {
-    console.log(req.body.tx_hex);
-    bitcoin.decode(req.body.tx_hex, );
+    console.log(req.body.rawtx);
+    bitcoin.decode(req.body.rawtx, function(tx) {
+        console.log(tx);
+        res.render('transaction', tx);
+    });
 });
 
 app.listen(3000, function() {
