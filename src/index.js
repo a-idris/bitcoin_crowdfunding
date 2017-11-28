@@ -12,7 +12,7 @@ app.set('view engine', 'pug')
 //middleware func to serve static content from public directory 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-//middleware to parse http body
+//middleware funcs to parse http body
 app.use(body_parser.json());
 app.use(body_parser.urlencoded({extended : true}));
 
@@ -26,10 +26,16 @@ app.get('/wallet', function(req, res) {
 
 app.post('/transmit', function(req, res) {
     console.log(req.body.rawtx);
-    bitcoin.decode(req.body.rawtx, function(tx) {
-        console.log(tx);
-        res.render('transaction', tx);
+    // bitcoin.decode(req.body.rawtx, function(tx) {
+    //     console.log(tx);
+    //     res.render('transaction.pug', tx);
+    // });
+    //call bitcoin.send_rawtx and on callback render the transaction.pug page with returned txid.  
+    bitcoin.send_rawtx(req.body.rawtx, function(txid) {
+        console.log(txid);
+        res.render('transaction.pug', { 'txid': txid });
     });
+    
 });
 
 app.listen(3000, function() {

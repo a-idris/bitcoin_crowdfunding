@@ -1,5 +1,6 @@
 var http = require('http');
 
+// creates post header for JSON-RPC request
 function get_post_options(body_length) {
     //need to include rpc username and password in Authorization header 
     const rpc_username = "user";
@@ -8,7 +9,7 @@ function get_post_options(body_length) {
     
     var post_options = {
         host: 'localhost',
-        port: '18332', //test port
+        port: '18332', //rpc regtest port
         method: 'POST',
         path: '/',
         headers: {
@@ -21,6 +22,7 @@ function get_post_options(body_length) {
     return post_options;
 }
 
+//send raw_tx to the bitcoin node to be propagated to the network and stored on the blockchain
 function send_rawtx(raw_tx, callback) {
     var post_body = {
         'jsonrpc': 1,
@@ -50,6 +52,7 @@ function send_rawtx(raw_tx, callback) {
     post_request.end();
 }
 
+//get tx json object from raw_tx
 function decode(raw_tx, callback) {
     var post_body = {
         'jsonrpc': 1,
@@ -79,5 +82,6 @@ function decode(raw_tx, callback) {
     post_request.end();
 }
 
+//expose the functions
 module.exports.send_rawtx = send_rawtx;
 module.exports.decode = decode;
