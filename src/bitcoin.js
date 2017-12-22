@@ -43,7 +43,9 @@ function send_rawtx(raw_tx, callback) {
             var res_obj = JSON.parse(response);
             if (res_obj.error === null) {
                 console.log(res_obj.result);
-                callback(res_obj.result);
+                callback(null, res_obj.result);
+            } else {
+                callback(res_obj.error);
             }
         });
     });
@@ -73,7 +75,9 @@ function decode(raw_tx, callback) {
             var res_obj = JSON.parse(response);
             if (res_obj.error === null) {
                 console.log(res_obj.result);
-                callback(res_obj.result);
+                callback(null, res_obj.result);
+            } else {
+                callback(res_obj.error);
             }
         });
     });
