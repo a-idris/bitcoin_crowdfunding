@@ -12,7 +12,7 @@ router.post('/', function(req, res, next) {
     //call bitcoin.send_rawtx and on callback render the transaction.pug page with returned txid.  
     bitcoin.send_rawtx(req.body.rawtx, function(txid) {
         console.log(txid);
-        res.render('transaction', { 'txid': txid });
+        res.render('transaction', { title: 'transaction', txid: txid });
     });
     
 });

@@ -1,12 +1,5 @@
-doctype html
-html
-    head
-        link(rel="stylesheet", type="text/css", href="css/main.css")
-        title bitcoin crowdfunding - transaction
-    body
-        nav
-            a(href="/") Home
-            a(href="/wallet") Wallet
-        
-        h1 Transaction #{txid} processed
+extends layout
+
+block content        
+    h2 Transaction #{txid} processed
         

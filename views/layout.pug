@@ -1,7 +1,18 @@
 doctype html
 html
-  head
-    title= title
-    link(rel='stylesheet', href='/stylesheets/style.css')
-  body
-    block content
+    head
+        title bitcoin crowdfunding - #{title}
+        link(rel='stylesheet', href='css/style.css')
+    body
+        header
+            h1.title #{title}
+            nav
+                a(href="/") Home
+                a(href="/profile") Profile
+                a(href="/wallet") Wallet
+                if logged_in !== true
+                    a(href="/login") Log in
+
+        block content
+
+        script(src="js/bundle.js")
