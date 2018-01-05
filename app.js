@@ -11,6 +11,10 @@ var profile = require('./routes/profile');
 var transmit = require('./routes/transmit');
 var wallet = require('./routes/wallet');
 
+var config = require('./config')
+
+// spin up db
+
 var app = express();
 
 // view engine setup
