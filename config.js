@@ -1,10 +1,10 @@
 var config = {}
 
 config.db = {
-	host: "localhost"
+	host: "localhost",
 	user: "aljan",
-	pass: "73SmKKaUEc@ZKz",
-	db: "bitcoincrowdfund",
+	password: "73SmKKaUEc@ZKz",
+	database: "bitcoincrowdfund",
 	connectionLimit: 30
 }
 

@@ -13,8 +13,21 @@ var router = express.Router();
 // controllers:
 // users
 // projects
-router.get('/', function(req, res, next) {
-  res.render('index', {title:''});
+
+var db = require('../src/database').get_db();
+db.open().catch(error => console.log("error opening db"));
+
+router.get('/', function (req, res, next) {
+    let query_str = "select * from projects natural join users";
+    db.query(query_str)
+    .then(results => {
+        console.log(results.results);
+        res.render('index', { title: '', projects: results.results });
+    })
+    .catch(error => {
+        console.log(error);
+        next(error); // 500 
+    });
 });
 
 module.exports = router;

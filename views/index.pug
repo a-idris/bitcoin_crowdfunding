@@ -2,4 +2,16 @@ extends layout
 
 block content
     p Welcome to #{title}
+    h2 Projects
 
+    ul
+        for project in projects
+            li
+                a(href=`/project/${project.project_id}`)
+                    div.project
+                        p #{project.title}
+                        p by #{project.username}
+                        p #{project.short_description}
+                        p #{project.amount_raised} over #{project.fund_goal}
+                        p #{project.deadline}
+    

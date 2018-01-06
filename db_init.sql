@@ -1,9 +1,11 @@
 -- https://www.cyberciti.biz/faq/howto-install-mysql-on-ubuntu-linux-16-04/
-drop table users;
+-- SET FOREIGN_KEY_CHECKS=0;
+
+drop table if exists users;
 create table users (
 	user_id int not null auto_increment,
 	username varchar(30) not null,
-	password_hash varchar(255) not null, --binary(60))
+	password_hash varchar(255) not null, 
 	salt varchar(255) not null,
 	encrypted_seed varchar(255) not null, -- blob
 	date_joined datetime not null,
@@ -11,9 +13,10 @@ create table users (
 	unique (username)
 );
 
-drop table projects; -- currency?, rewards?
+drop table if exists projects; -- currency?, rewards?, media / images
 create table projects (
 	project_id int not null auto_increment,
+	user_id int not null,
 	title varchar(50) not null, 
 	short_description varchar(80) default null, 
 	description varchar(500) default null, -- blob
@@ -22,10 +25,11 @@ create table projects (
 	amount_pledged int default 0,
 	date_added datetime not null,
 	deadline datetime,
-	primary key (project_id)
+	primary key (project_id),
+	foreign key (user_id) references users(user_id)
 );
 
-drop table project_updates; -- currency?
+drop table if exists project_updates; -- currency?
 create table project_updates (
 	project_update_id int not null auto_increment,
 	project_id int not null,
@@ -35,26 +39,28 @@ create table project_updates (
 	foreign key (project_id) references projects(project_id)
 );
 
-drop table project_comments; 
+drop table if exists project_comments; 
 create table project_comments (
 	project_comment_id int not null auto_increment,
 	project_id int not null,
+	user_id int not null,	
 	comment varchar(500) not null,
 	comment_time datetime,
 	primary key (project_comment_id),
-	foreign key (project_id) references projects(project_id)
+	foreign key (project_id) references projects(project_id),
+	foreign key (user_id) references users(user_id)
 );
 
-drop table pledge_inputs;
+drop table if exists pledge_inputs;
 create table pledge_inputs (
 	input_id int not null auto_increment,
 	txid varchar(100) not null, -- unique 
-	vout small int not null, 
-	signature varchar(100) not null, --blob
+	vout smallint not null, 
+	signature varchar(100) not null, 
 	primary key (input_id)
 );
 
-drop table pledges;
+drop table if exists pledges;
 create table pledges (
 	pledge_id int not null auto_increment,
 	user_id int not null, 
@@ -62,8 +68,10 @@ create table pledges (
 	input_id int not null, 
 	amount int not null,
 	pledge_time datetime not null,
-	primary key (pledge_id)
-	foreign key (user_id) references users(users_id)
-	foreign key (project_id) references projects(project_id)
+	primary key (pledge_id),
+	foreign key (user_id) references users(user_id),
+	foreign key (project_id) references projects(project_id),
 	foreign key (input_id) references pledge_inputs(input_id)
 );
+
+-- SET FOREIGN_KEY_CHECKS=1;

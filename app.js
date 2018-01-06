@@ -14,6 +14,8 @@ var wallet = require('./routes/wallet');
 var config = require('./config')
 
 // spin up db
+var db = require('./src/database').get_db();
+db.open().catch(error => console.log("error opening db"));
 
 var app = express();
 
