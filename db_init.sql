@@ -26,7 +26,7 @@ create table projects (
 	date_added datetime not null,
 	deadline datetime,
 	primary key (project_id),
-	foreign key (user_id) references users(user_id)
+	foreign key (user_id) references users(user_id) on delete cascade
 );
 
 drop table if exists project_updates; -- currency?
@@ -36,9 +36,10 @@ create table project_updates (
 	update_description varchar(500) not null,
 	update_time datetime,
 	primary key (project_update_id),
-	foreign key (project_id) references projects(project_id)
+	foreign key (project_id) references projects(project_id) on delete cascade
 );
 
+-- dont delete comment if user deletes acc? 
 drop table if exists project_comments; 
 create table project_comments (
 	project_comment_id int not null auto_increment,
@@ -47,8 +48,8 @@ create table project_comments (
 	comment varchar(500) not null,
 	comment_time datetime,
 	primary key (project_comment_id),
-	foreign key (project_id) references projects(project_id),
-	foreign key (user_id) references users(user_id)
+	foreign key (project_id) references projects(project_id) on delete cascade,
+	foreign key (user_id) references users(user_id) 
 );
 
 drop table if exists pledge_inputs;
@@ -69,9 +70,9 @@ create table pledges (
 	amount int not null,
 	pledge_time datetime not null,
 	primary key (pledge_id),
-	foreign key (user_id) references users(user_id),
-	foreign key (project_id) references projects(project_id),
-	foreign key (input_id) references pledge_inputs(input_id)
+	foreign key (user_id) references users(user_id) on delete cascade,
+	foreign key (project_id) references projects(project_id) on delete cascade,
+	foreign key (input_id) references pledge_inputs(input_id) on delete cascade
 );
 
 -- SET FOREIGN_KEY_CHECKS=1;

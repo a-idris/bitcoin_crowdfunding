@@ -8,10 +8,11 @@ html
             h1.title #{title}
             nav
                 a(href="/") Home
-                a(href="/profile") Profile
+                a(href="/users/1") Profile
                 a(href="/wallet") Wallet
                 if logged_in !== true
                     a(href="/login") Log in
+                    a(href="/register") Sign up
 
         block content
 

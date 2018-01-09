@@ -5,17 +5,19 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
+// spin up db
+var db = require('./src/database').get_db();
+db.open().catch(error => console.log("error opening db"));
+
 var index = require('./routes/index');
+var projects = require('./routes/projects');
 var login = require('./routes/login');
+var register = require('./routes/register');
 var profile = require('./routes/profile');
 var transmit = require('./routes/transmit');
 var wallet = require('./routes/wallet');
 
 var config = require('./config')
-
-// spin up db
-var db = require('./src/database').get_db();
-db.open().catch(error => console.log("error opening db"));
 
 var app = express();
 
@@ -32,8 +34,10 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', index);
+app.use('/projects', projects);
 app.use('/login', login);
-app.use('/profile', profile);
+app.use('/register', login);
+app.use('/users', profile);
 app.use('/transmit', transmit);
 app.use('/wallet', wallet);
 

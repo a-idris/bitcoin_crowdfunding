@@ -21,7 +21,7 @@ router.get('/', function (req, res, next) {
     let query_str = "select * from projects natural join users";
     db.query(query_str)
     .then(results => {
-        console.log(results.results);
+        // console.log(results.results);
         res.render('index', { title: '', projects: results.results });
     })
     .catch(error => {

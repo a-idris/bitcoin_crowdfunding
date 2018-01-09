@@ -1,8 +1,27 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 
-router.get('/', function(req, res, next) {
-    res.render('profile', {title: 'profile'});
+const db = require('../src/database').get_db();
+
+router.get('/:id', function(req, res, next) {
+    let query_str = `select * from users where user_id=${req.params.id}`;
+    db.query(query_str)
+    .then(results => {
+        if (results.results[0]) {
+            console.log(results.results[0]);
+            res.render('profile', { title: 'profile', user: results.results[0] });          
+        } else {
+            next();
+        }
+    })
+    .catch(error => {
+        console.log(error);
+        next(error); // 500 
+    });
+});
+
+router.get('/:id/settings', function(req, res, next) {
+    // validate session id
 });
 
 module.exports = router;
