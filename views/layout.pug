@@ -1,19 +1,42 @@
 doctype html
 html
     head
+        meta(charset="utf-8")
+        meta(name="viewport", content="width=device-width, initial-scale=1, shrink-to-fit=no")        
         title bitcoin crowdfunding - #{title}
-        link(rel='stylesheet', href='css/style.css')
+        link(rel='stylesheet', href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css", integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm", crossorigin="anonymous")
+        link(rel='stylesheet', href='/css/style.css')
     body
-        header
-            h1.title #{title}
-            nav
-                a(href="/") Home
-                a(href="/users/1") Profile
-                a(href="/wallet") Wallet
-                if logged_in !== true
-                    a(href="/login") Log in
-                    a(href="/register") Sign up
+        header.mb-3
+            nav.navbar.navbar-expand-md.bg-dark.navbar-dark
+                span.nav-brand.my-auto.h2.text-light.mr-4 bitcoin crowdfund
+                //- toggle nav links button
+                button.navbar-toggler(type="button", data-toggle="collapse", data-target="#collapsibleNavbar")
+                    span.navbar-toggler-icon
+                //- collapsible
+                .collapse.navbar-collapse#collapsibleNavbar
+                    ul.navbar-nav.mr-auto
+                        li.nav-item
+                            a.nav-link(href="/") Home
+                        li.nav-item
+                                a.nav-link(href="/users/1") Profile
+                        li.nav-item
+                            a.nav-link(href="/wallet") Wallet
+                        if logged_in !== true
+                            li.nav-item
+                                a.nav-link(href="/login") Log in
+                    //- search bar
+                    form.form-inline(action="")
+                        input.form-control.mr-1(type="search", placeholder="Search")
+                        button.btn.btn-outline-primary(type="submit") Search
+        main.container     
+            block content
+        footer.footer.bg-dark.text-center
+            .container
+                span.text-muted 2018
 
-        block content
 
-        script(src="js/bundle.js")
+        script(src="https://code.jquery.com/jquery-3.2.1.slim.min.js", integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", crossorigin="anonymous")
+        script(src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js", integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q", crossorigin="anonymous")
+        script(src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js", integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", crossorigin="anonymous")
+        script(src="/js/bundle.js")

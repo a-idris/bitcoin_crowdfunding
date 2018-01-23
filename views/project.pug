@@ -1,46 +1,55 @@
 extends layout
 
 block content
-    p Welcome to #{title}
-    h2 Project
+    .bg-light.p-3
+        .project
+            h2 #{project.title}
+            p.my-0 proposed by #[a(href=`/users/2`) #{project.username}]
+            h6.small.mb2=project.deadline 
+            
+            //- p #{project.short_description}
+            
+            h4 Project Description
+            p #{project.description}
 
-    .project
-        h2 #{project.title}
-        p by #{project.username}
-        
-        p #{project.short_description}
-        
-        p #{project.description}
-        p #{project.amount_raised} over #{project.fund_goal}
-        p #{project.deadline}
+            h4 Progress
+            p #{project.amount_pledged} pledged out of #{project.fund_goal} total
+            .progress
+                - 
+                    progress_proportion = project.amount_pledged / project.fund_goal
+                    progress_str = progress_proportion + "%"
+                .progress-bar(width=`${progress_str}`) 
+                    if progress_proportion > 0
+                        #{progress_str}
+            p #{project.deadline}
 
-    button#pledge make pledge
+        button#pledge make pledge
 
-    if author
-        button#update_project add update
-        button#delete_project delete project
+        if author
+            button#update_project add update
+            button#delete_project delete project
 
-    if updates           
-        .updates
-            ul 
-                for update in updates
-                    li.update
-                        p= update.description
-                        p on #{update.update_time}  
+        if updates           
+            .updates
+                ul 
+                    for update in updates
+                        li.update
+                            p= update.description
+                            p on #{update.update_time}  
 
-    .comments
-        h2 Comments
+        .comments
+            h4 Comments
 
-        .comment_submission
-            h3 Add a comment
-            form(action=`/projects/${project.project_id}/add_comment`, method="post")
-                input(type="text", name="comment")
-                input(type="submit", value="submit")
-                //- handle submit logic w/ js. if not logged in, preventDefualt        
-        
-        if comments
-            ul 
-                for comment in comments
-                    li.comment
-                        p= comment.comment
-                        p posted by #{comment.username} at #{comment.comment_time}
+            .comment_submission
+                h5 Add a comment
+                form(action=`/projects/${project.project_id}/add_comment`, method="post")
+                    input(type="textarea", name="comment")
+                    input(type="submit", value="submit")
+                    //- handle submit logic w/ js. if not logged in, preventDefualt        
+            
+            if comments
+                ul 
+                    for comment in comments
+                        li.comment
+                            p= comment.comment
+                            p posted by #{comment.username} at #{comment.comment_time}

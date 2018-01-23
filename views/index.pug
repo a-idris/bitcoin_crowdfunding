@@ -1,17 +1,25 @@
 extends layout
 
 block content
-    p Welcome to #{title}
-    h2 Projects
-
-    ul
+    h2 Latest Projects
+    //- card columns
+    .row
         for project in projects
-            li
-                a(href=`/projects/${project.project_id}`)
-                    div.project
-                        p #{project.title}
-                        a(href=`users/2`) by #{project.username}
-                        p #{project.short_description}
-                        p #{project.amount_raised} over #{project.fund_goal}
-                        p #{project.deadline}
+            .col-3
+                .card.bg-light.mb-3
+                    .card-body.text-center
+                        h4.card-title.mb-0 #{project.title}
+                        a.card-subtitle.text-muted(href=`users/2`) by #{project.username}
+                        p.card-text.mt-3 #{project.short_description}
+                        //- todo: progress bar
+                        p.card-text #{project.amount_pledged} of #{project.fund_goal} pledged
+                        .progress.progress-thin
+                            - 
+                                progress_proportion = project.amount_pledged / project.fund_goal
+                                progress_str = progress_proportion + "%"
+                            .progress-bar(width=`${progress_str}`) 
+                                if progress_proportion > 0
+                                    #{progress_str}
+                        p.card-text #{project.deadline}
+                        a.btn.btn-primary.btn-sm(href=`/projects/${project.project_id}`) View 
     
