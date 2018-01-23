@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
 
 const db = require('../src/database').get_db();
 
@@ -8,14 +9,13 @@ router.get('/', function(req, res, next) {
 }); 
 
 router.post('/', function(req, res, next) {
-    // db logic
     //return json
     authenticate(req.body)
     .then(result => {
         if (result === true) {
             res.redirect('/');
         } else if (result == false) {
-            res.redirect('/login');
+            res.redirect('/login?error=denied');
         }
     })
     .catch(error => {
@@ -30,7 +30,7 @@ function authenticate(login_details) {
         return Promise.resolve(false);
     // user exists
     let query_str = `select * from users where username=?`;
-    return db.query(query_str, [login_details.username])
+    let auth_promise = db.query(query_str, [login_details.username])
     .then(results => {
         console.log("dbresults", results);
         if (!results.length) {
@@ -38,13 +38,16 @@ function authenticate(login_details) {
             return false;
         } else {
             console.log("found user");
-            return true;
+            return results[0];
         }
     })
-;    // .then(_ => {
-    //     // password matches
-
-    // });
+    .then(user => {
+        if (user) {
+            return bcrypt.compare(login_details.password, user.password_hash);
+        }
+        return false;
+    });
+    return auth_promise;
 };
 
 module.exports = router;

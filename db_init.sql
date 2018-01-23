@@ -5,8 +5,7 @@ drop table if exists users;
 create table users (
 	user_id int not null auto_increment,
 	username varchar(30) not null,
-	password_hash varchar(255) not null, 
-	salt varchar(255) not null,
+	password_hash char(60) not null, 
 	encrypted_seed varchar(255) not null, -- blob
 	date_joined datetime not null,
 	primary key (user_id),

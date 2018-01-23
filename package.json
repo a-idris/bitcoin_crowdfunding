@@ -9,6 +9,7 @@
     "devstart": "npm run watch & nodemon ./bin/www"
   },
   "dependencies": {
+    "bcrypt": "^1.0.3",
     "bitcore-lib": "^0.15.0",
     "body-parser": "~1.18.2",
     "cookie-parser": "~1.4.3",
