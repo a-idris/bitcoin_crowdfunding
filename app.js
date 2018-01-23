@@ -36,7 +36,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', index);
 app.use('/projects', projects);
 app.use('/login', login);
-app.use('/register', login);
+app.use('/register', register);
 app.use('/users', profile);
 app.use('/transmit', transmit);
 app.use('/wallet', wallet);

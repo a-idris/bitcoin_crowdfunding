@@ -1,13 +1,13 @@
 extends layout
 
 block content
-    h3 Log in or #[a(href="/register") sign up here]
+    h4.mb-3 Log in or #[a(href="/register") sign up here]
     form.form-login(action="/login", method="post", id="login")
         .form-group 
             label(for="username") Username
-            input.form-control(type="text", name="username", id="username", placeholder="username")
+            input.form-control(type="text", name="username", id="username", placeholder="username" required)
         .form-group
             label(for="password") Password
-            input.form-control(type="password", name="password", id="password", placeholder="password")
+            input.form-control(type="password", name="password", id="password", placeholder="password" required)
         button.btn.btn-primary(type="submit") Log in
 

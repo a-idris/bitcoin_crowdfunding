@@ -4,12 +4,12 @@ const router = express.Router();
 const db = require('../src/database').get_db();
 
 router.get('/:id', function(req, res, next) {
-    let query_str = `select * from users where user_id=${req.params.id}`;
-    db.query(query_str)
+    let query_str = `select * from users where user_id=?`;
+    db.query(query_str, [req.params.id])
     .then(results => {
-        if (results.results[0]) {
-            console.log(results.results[0]);
-            res.render('profile', { title: 'profile', user: results.results[0] });          
+        if (results[0]) {
+            console.log(results[0]);
+            res.render('profile', { title: 'profile', user: results[0] });          
         } else {
             next();
         }

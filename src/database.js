@@ -7,28 +7,19 @@ Database.prototype.open = function() {
     // connect using config file
     // use connection pool to improve throughput
     this.pool = mysql.createPool(this.config.db); 
-
     return Promise.resolve();
-    // return promise, reject if err is raised else resolve
-    // return new Promise((resolve, reject) => {
-    //     pool.connect(function(err) {
-    //         reject(err);
-    //     });
-    //     console.log(`connected to ${this.config.database} at ${this.config.host}`);
-    //     resolve();
-    // });
 }
 
 // promise wrappers
-Database.prototype.query = function(queryString) {
+Database.prototype.query = function(queryString, values, includeFields) {
     return new Promise((resolve, reject) => {
-        this.pool.query(queryString, function(err, results, fields) {
+        this.pool.query(queryString, values, function(err, results, fields) {
             if (err) {
                 reject(err);
-            } else if (fields) {
-                resolve({results: results, fields: fields});
-            } else {
+            } else if (!includeFields) {
                 resolve(results);
+            } else {
+                resolve({results: results, fields: fields});
             }
         });
     }); 
@@ -44,9 +35,6 @@ Database.prototype.close = function() {
         resolve(true);
     });
 }
-
-// module.exports = db;
-
 
 // singleton
 var instance;

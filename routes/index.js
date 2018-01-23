@@ -22,7 +22,7 @@ router.get('/', function (req, res, next) {
     db.query(query_str)
     .then(results => {
         // console.log(results.results);
-        res.render('index', { title: '', projects: results.results });
+        res.render('index', { title: '', projects: results });
     })
     .catch(error => {
         console.log(error);
