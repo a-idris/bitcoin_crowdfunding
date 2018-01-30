@@ -8,6 +8,9 @@ config.db = {
 	connectionLimit: 30
 }
 
-config.sessions = {}
+config.session = {
+	name: "session",
+	keys: ["7U#ztuRAqb$ww9"]
+}
 
 module.exports = config

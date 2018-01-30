@@ -5,17 +5,18 @@ const bcrypt = require('bcrypt');
 const db = require('../src/database').get_db();
 
 router.get('/', function(req, res, next) {
-    res.render('login', {title: 'login'});
+    res.render('login', {title: 'login', session: req.session});
 }); 
 
 router.post('/', function(req, res, next) {
     //return json
     authenticate(req.body)
-    .then(result => {
-        if (result === true) {
-            res.redirect('/');
-        } else if (result == false) {
+    .then(user_id => {
+        if (user_id === false) {
             res.redirect('/login?error=denied');
+        } else {
+            req.session.user_id = user_id;
+            res.redirect('/');
         }
     })
     .catch(error => {
@@ -25,25 +26,24 @@ router.post('/', function(req, res, next) {
 }); 
 
 function authenticate(login_details) {
-    // nonempty
+    // is nonempty
     if (!login_details.username || !login_details.password)
         return Promise.resolve(false);
-    // user exists
+    // username exists
     let query_str = `select * from users where username=?`;
     let auth_promise = db.query(query_str, [login_details.username])
     .then(results => {
-        console.log("dbresults", results);
         if (!results.length) {
-            console.log("no user");
             return false;
         } else {
-            console.log("found user");
             return results[0];
         }
     })
     .then(user => {
-        if (user) {
-            return bcrypt.compare(login_details.password, user.password_hash);
+        //password hash matches
+        if (user && bcrypt.compare(login_details.password, user.password_hash)) {
+            // return the id
+            return user.user_id;
         }
         return false;
     });

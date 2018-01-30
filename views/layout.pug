@@ -19,12 +19,14 @@ html
                         li.nav-item
                             a.nav-link(href="/") Home
                         li.nav-item
-                                a.nav-link(href="/users/1") Profile
+                            a.nav-link(href="/users/") Profile
                         li.nav-item
                             a.nav-link(href="/wallet") Wallet
-                        if logged_in !== true
-                            li.nav-item
+                        li.nav-item
+                            if session && !session.user_id
                                 a.nav-link(href="/login") Log in
+                            else 
+                                a.nav-link(href="/logout") Log out
                     //- search bar
                     form.form-inline(action="")
                         input.form-control.mr-1(type="search", placeholder="Search")

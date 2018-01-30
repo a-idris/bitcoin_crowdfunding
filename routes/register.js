@@ -12,6 +12,7 @@ router.post('/', function(req, res, next) {
     validate(req.body)
     .then(save_details)
     .then(user_id => {
+        req.session.user_id = user_id;
         res.redirect(`/users/${user_id}`);
     })
     .catch(err => {

@@ -6,27 +6,28 @@ block content
     p date joined: #{user.date_joined}
 
     //- user info. user_infos
-    button add info
+    if session.user_id == user.user_id
+        button Edit profile
 
     //- wallet
 
-    h2 Pledges
-        if !pledges
-            p no pledges
-        else
-            ul
-                for pledge in pledges 
-                    li
-                        a(href=`/projects/${pledge.project_id}`)
-                            div.project
-                                p #{pledge.title}
-                                a by #{pledge.username}
-                                p #{pledge.short_description}
-                                p #{pledge.amount_raised} over #{pledge.fund_goal}
-                                p #{pledge.deadline}
+    h3 Pledges
+    if !pledges
+        p no pledges
+    else
+        ul
+            for pledge in pledges 
+                li
+                    a(href=`/projects/${pledge.project_id}`)
+                        div.project
+                            p #{pledge.title}
+                            a by #{pledge.username}
+                            p #{pledge.short_description}
+                            p #{pledge.amount_raised} over #{pledge.fund_goal}
+                            p #{pledge.deadline}
 
-                                p Your pledge:
-                                p #{pledge.amount} on #{pledge.pledge_time}
+                            p Your pledge:
+                            p #{pledge.amount} on #{pledge.pledge_time}
                                 
   
 
