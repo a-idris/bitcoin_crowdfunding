@@ -44,8 +44,8 @@ function save_details(registration_details) {
     .then(hash => {
         //save to db 
         let query_str = "insert into users values (NULL, ?, ?, ?, now())";
-        return db.query(query_str, [registration_details.username, hash, "seed"])
-        .then(results => results.insertId); //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
+        //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
+        return db.query(query_str, [registration_details.username, hash, "seed"]).then(results => results.insertId); 
     });
 };
 

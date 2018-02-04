@@ -54,8 +54,8 @@ def main():
 			projects.append(project)
 
 	for project_id in range(1, num_users * num_projects_per_user):
-		num_updates = int(random.random() * 3) 
-		num_comments = int(random.random() * 5) 
+		num_updates = int(random.random() * 4) 
+		num_comments = int(random.random() * 7) 
 
 		for update_no in range(1, num_updates + 1):
 			update_description = fake.text(max_nb_chars=500)
@@ -63,7 +63,7 @@ def main():
 			project_update = create_project_update(project_id, update_description, update_time)
 			project_updates.append(project_update)
 
-		for comment_no in range(1, num_updates + 1):
+		for comment_no in range(1, num_comments + 1):
 			user_id = int(num_users * random.random()) + 1
 			comment = fake.text(max_nb_chars=500)
 			comment_time = fake.date_time_this_year().strftime('%Y-%m-%d %H:%M:%S')

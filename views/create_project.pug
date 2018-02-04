@@ -1,0 +1,24 @@
+extends layout
+
+block content
+    h4.mb-3 Create a project
+    form(action="/projects/create", method="post", id="create_project")
+        .form-group 
+            label(for="title") Title
+            input.form-control(type="text", name="title", id="title", placeholder="title" required)
+        .form-group 
+            label(for="short_description") Short Description
+            input.form-control(type="text", name="short_description", id="short_description", placeholder="short description")
+        .form-group 
+            label(for="description") Description
+            textarea.form-control(name="description", id="description", placeholder="description", rows="4")
+        .form-group 
+            label(for="fund_goal") Fund goal 
+            input.form-control(type="number", name="fund_goal", id="fund_goal", min="1" required)
+        .form-group 
+            label(for="deadline") Deadline 
+            input.form-control(type="datetime-local", name="deadline", id="deadline", required)
+        
+        button.btn.btn-primary.mb-4(type="submit") Create
+
+        //- popup to unlock the seed and generate scriptPubKey

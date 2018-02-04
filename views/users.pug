@@ -1,0 +1,7 @@
+extends layout
+
+block content
+    h2 All users
+    .list-group
+        for user in users
+            a.list-group-item.bg-light.mb-1(href=`${user.user_id}`) #{user.username}

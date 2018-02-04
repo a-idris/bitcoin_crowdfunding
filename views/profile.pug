@@ -9,8 +9,39 @@ block content
     if session.user_id == user.user_id
         button Edit profile
 
-    //- wallet
+    //- wallet stats
 
+    //- N last projects by the user
+    .mb-3
+        h3 Projects
+        if !projects
+            p no projects submitted yet.
+            //- validate session
+            a(href='#') Make submission.
+        else
+            a.text-muted(href=`${user.user_id}/projects`) View all
+            
+            //- .row
+            .card-group
+                for project in projects
+                    //- .col-3
+                    .card.bg-light.mb-3
+                        .card-body.text-center
+                            h4.card-title.mb-0 #{project.title}
+                            p.card-text.mt-3 #{project.short_description}
+                            
+                            span.card-text #{project.amount_pledged} of #{project.fund_goal} pledged
+                            .progress.progress-thin
+                                - 
+                                    progress_proportion = (project.amount_pledged / project.fund_goal) * 100
+                                    progress_str = Number((progress_proportion).toFixed(0)) + "%"
+                                .progress-bar(style=`width: ${progress_str};`) 
+                            p.card-text Deadline: #{project.deadline}
+                            a.btn.btn-primary.btn-sm(href=`/projects/${project.project_id}`) View 
+    
+
+
+    //- only for the logged in user
     h3 Pledges
     if !pledges
         p no pledges

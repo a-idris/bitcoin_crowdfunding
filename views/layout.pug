@@ -19,7 +19,10 @@ html
                         li.nav-item
                             a.nav-link(href="/") Home
                         li.nav-item
-                            a.nav-link(href="/users/") Profile
+                            a.nav-link(href="/users/") Users
+                        if session && session.user_id
+                            li.nav-item 
+                                a.nav-link(href=`/users/${session.user_id}`) Profile
                         li.nav-item
                             a.nav-link(href="/wallet") Wallet
                         li.nav-item

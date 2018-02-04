@@ -1,15 +1,18 @@
 extends layout
 
 block content
-    h2 Latest Projects
-    //- card columns
+    .mb-3
+        h2 #{user.username}'s projects
+        a.text-muted(href=`/users/${user.user_id}`) View profile
+
+    //- card columns 
     .row
         for project in projects
             .col-3
                 .card.bg-light.mb-3
                     .card-body.text-center
                         h4.card-title.mb-0 #{project.title}
-                        a.card-subtitle.text-muted(href=`users/${project.user_id}`) by #{project.username}
+                        //- a.card-subtitle.text-muted(href=`users/${project.user_id}`) by #{project.username}
                         p.card-text.mt-3 #{project.short_description}
                         
                         span.card-text #{project.amount_pledged} of #{project.fund_goal} pledged

@@ -2,9 +2,9 @@ extends layout
 
 block content
     .bg-light.p-3
-        .project
+        .project.mb-3
             h2 #{project.title}
-            p.my-0 proposed by #[a(href=`/users/2`) #{project.username}]
+            p.my-0 proposed by #[a(href=`/users/${project.user_id}`) #{project.username}]
             h6.small.mb2=project.deadline 
             
             //- p #{project.short_description}
@@ -16,40 +16,50 @@ block content
             p #{project.amount_pledged} pledged out of #{project.fund_goal} total
             .progress
                 - 
-                    progress_proportion = project.amount_pledged / project.fund_goal
-                    progress_str = progress_proportion + "%"
-                .progress-bar(width=`${progress_str}`) 
+                    progress_proportion = (project.amount_pledged / project.fund_goal) * 100
+                    progress_str = Number((progress_proportion).toFixed(0)) + "%"
+                .progress-bar(style=`width: ${progress_str};`) 
                     if progress_proportion > 0
-                        #{progress_str}
-            p #{project.deadline}
+                        span #{progress_str}
+            p Deadline: #{project.deadline}
 
-        button#pledge make pledge
+            button#pledge make pledge
 
         if author
-            button#update_project add update
+            //- modal to add update 
+            button#update_project add update 
             button#delete_project delete project
 
-        if updates           
-            .updates
-                ul 
-                    for update in updates
-                        li.update
-                            p= update.description
-                            p on #{update.update_time}  
+        if updates
+            h4 Updates           
+            .updates.mb-3
+                for update in updates
+                    .card.mb-2.update
+                        .card-body
+                            p.card-text= update.update_description
+                        .card-footer
+                            | on #{update.update_time} 
 
         .comments
             h4 Comments
 
-            .comment_submission
-                h5 Add a comment
-                form(action=`/projects/${project.project_id}/add_comment`, method="post")
-                    input(type="textarea", name="comment")
-                    input(type="submit", value="submit")
-                    //- handle submit logic w/ js. if not logged in, preventDefualt        
+            if session && session.user_id
+                .comment_submission.mb-3
+                    //- h5 Add a comment
+                    
+                    form(action=`/projects/${project.project_id}/add_comment`, method="post", id="add_comment")
+                        .form-group 
+                            label(for="comment") Add a comment
+                            textarea.form-control(name="comment", id="comment", placeholder="comment", rows="2")
+                        button.btn.btn-primary.btn-sm(type="submit") Submit
+
+                        //- handle submit logic w/ js. if not logged in, preventDefualt        
             
             if comments
-                ul 
+                .comments.mb-3
                     for comment in comments
-                        li.comment
-                            p= comment.comment
-                            p posted by #{comment.username} at #{comment.comment_time}
+                        .card.mb-2.comment
+                            .card-body
+                                p= comment.comment
+                            .card-footer
+                                | posted by #[a(href=`/users/${comment.user_id}`) #{comment.username}] on #{comment.comment_time}
