@@ -184,7 +184,10 @@ router.post('/:id/make_pledge', function (req, res, next) {
     // TODO: make it a transaction
 
     if (!req.session.user_id) {
-        res.redirect('/login');
+        res.status(403).json({
+            status: 403,
+            message: 'Must be logged in to perform this action'
+        });
     } 
 
     if (validate_pledge(req.body)) {
@@ -266,29 +269,5 @@ function validate_pledge(pledge) {
     }
     return true;
 }
-
-
-// if (validate_project_submission(req.body)) {
-//     let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
-//     values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.scriptPubKey, req.body.fund_goal, req.body.deadline];
-//     //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
-//     db.query(query_str, values)
-//     .then(results => { 
-//         let project_id = results.insertId;
-//         if (project_id) {
-//             res.redirect(`/projects/${project_id}`);
-//         } else {
-//             return Promise.reject(new Error('Insert operation failed'));            
-//         }
-//     })
-//     .catch(error => {
-//         console.log(error);
-//         next(error); // 500 
-//     }); 
-// } else {
-//     let err = new Error("Invalid form data");
-//     err.status = 400;
-//     next(err);
-// }
 
 module.exports = router;

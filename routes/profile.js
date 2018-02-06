@@ -26,7 +26,7 @@ router.get('/:id', function(req, res, next) {
         user = user_results[0];
         if (user) {
             // get 5 latest projects
-            query_str = "select * from projects where user_id=? order by date_added desc limit 3"
+            query_str = "select * from projects where user_id=? order by date_added desc limit 4"
             return db.query(query_str, [user_id]);
         } else {
             let err = new Error('User not found');
@@ -38,7 +38,11 @@ router.get('/:id', function(req, res, next) {
         user_projects = project_results;
         // only display the personal pledges to the logged in user
         if (req.session && req.session.user_id == user_id) {
-            query_str = "select * from pledges where user_id=?";
+            query_str = "select * \
+                        from pledges join projects on pledges.project_id = projects.project_id \
+                        join users on projects.user_id = users.user_id \
+                        where pledges.user_id=? \
+                        limit 4";
             return db.query(query_str, [user_id]);
         } else {
             return Promise.resolve(null);
@@ -78,8 +82,7 @@ router.get('/:id/projects', function(req, res, next) {
     .then(project_results => {
         user_projects = project_results;
         res.render('user_projects', { 
-            title: 'profile',
-            session: req.session, 
+            title: 'projects',
             user: user,
             projects: user_projects
         });    
@@ -89,6 +92,35 @@ router.get('/:id/projects', function(req, res, next) {
         next(error); // 500 
     });
 });
+
+// get all the projects submitted by a user
+router.get('/:id/pledges', function(req, res, next) {
+    let user_id = req.params.id;
+
+    // only user can access own pledges
+    if (req.session.user_id != user_id) {
+        res.redirect('/')
+    }
+
+    // let user_pledges;
+    let query_str = "select * \
+                    from pledges join projects on pledges.project_id = projects.project_id \
+                    join users on projects.user_id = users.user_id \
+                    where pledges.user_id=?";
+    db.query(query_str, [user_id])
+    .then(pledge_results => {
+        let user_pledges = pledge_results;
+        res.render('user_pledges', { 
+            title: 'pledges',
+            pledges: user_pledges
+        });    
+    })
+    .catch(error => {
+        console.log(error);
+        next(error); // 500 
+    });
+});
+
 
 router.get('/:id/settings', function(req, res, next) {
     // validate session id

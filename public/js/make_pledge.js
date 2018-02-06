@@ -19,7 +19,7 @@ $(document).ready(function() {
                 let data = jqXhr.responseJSON;
                 console.log("error", data.status, data.message);
                 let error_msg = $('<p>').addClass("text-danger error-message").text(`Error ${data.status}: ${data.message}`);
-                var existing_messages = $(this_form).children('span.error-message');
+                var existing_messages = $(this_form).children('p.error-message');
                 if (existing_messages.length == 0) {
                     $(this_form).append(error_msg);
                 } else {
@@ -28,27 +28,6 @@ $(document).ready(function() {
             }, 
             dataType: 'json'
         });
-
-        // $.post(
-        //     $(this).attr('action'), // use url from form
-        //     transaction, 
-        //     function(data, status) {
-        //         console.log("DATA:", data);
-        //         console.log("STATUS", status);
-        //         if (data.status == 200) {
-        //             location.reload();
-        //         } else if (data.status >= 400) {
-        //             let error_msg = $('<span>').addClass("text-danger", "error-message").val(data.message);
-        //             var existing_messages = $(this).children('span.error-message');
-        //             if (existing_messages.length == 0) {
-        //                 $(this).append($(error_msg));
-        //             } else {
-        //                 existing_messages[0].val(data.message);
-        //             }
-        //         }
-        //     }, 
-        //     'json'
-        // );
     });
 });
 
