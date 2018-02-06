@@ -3,11 +3,14 @@ extends layout
 block content
     .bg-light.p-3
         .project.mb-3
+            if session.user_id == project.user_id
+                //- modal to add update 
+                .float-right
+                    a#delete_project.btn.btn-danger(href=`/projects/${project.project_id}/delete`) delete project
+
             h2 #{project.title}
             p.my-0 proposed by #[a(href=`/users/${project.user_id}`) #{project.username}]
             h6.small.mb2=project.deadline 
-            
-            //- p #{project.short_description}
             
             h4 Project Description
             p #{project.description}
@@ -23,15 +26,19 @@ block content
                         span #{progress_str}
             p Deadline: #{project.deadline}
 
-            button#pledge make pledge
-
-        if author
-            //- modal to add update 
-            button#update_project add update 
-            button#delete_project delete project
+            button#pledge.btn.btn-primary make pledge
 
         if updates
-            h4 Updates           
+            h4 Updates      
+
+            if session.user_id == project.user_id
+                .update_submission.mb-3                    
+                    form(action=`/projects/${project.project_id}/add_update`, method="post", id="add_update")
+                        .form-group 
+                            label(for="update") Add an update
+                            textarea.form-control(name="update", id="update", placeholder="update", rows="2")
+                        button.btn.btn-primary.btn-sm(type="submit") Submit
+
             .updates.mb-3
                 for update in updates
                     .card.mb-2.update

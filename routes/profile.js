@@ -29,7 +29,9 @@ router.get('/:id', function(req, res, next) {
             query_str = "select * from projects where user_id=? order by date_added desc limit 3"
             return db.query(query_str, [user_id]);
         } else {
-            return Promise.reject(new Error('User not found'));
+            let err = new Error('User not found');
+            err.status = 404;
+            return Promise.reject(err);
         }      
     })
     .then(project_results => {

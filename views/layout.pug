@@ -19,14 +19,14 @@ html
                         li.nav-item
                             a.nav-link(href="/") Home
                         li.nav-item
-                            a.nav-link(href="/users/") Users
+                            a.nav-link(href="/users") Users
                         if session && session.user_id
                             li.nav-item 
                                 a.nav-link(href=`/users/${session.user_id}`) Profile
                         li.nav-item
                             a.nav-link(href="/wallet") Wallet
                         li.nav-item
-                            if session && !session.user_id
+                            if !session.user_id
                                 a.nav-link(href="/login") Log in
                             else 
                                 a.nav-link(href="/logout") Log out
@@ -37,8 +37,7 @@ html
         main.container     
             block content
         footer.footer.bg-dark.text-center
-            .container
-                span.text-muted 2018
+            span.text-muted 2018
 
 
         script(src="https://code.jquery.com/jquery-3.2.1.slim.min.js", integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", crossorigin="anonymous")

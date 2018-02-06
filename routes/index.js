@@ -1,14 +1,5 @@
-var express = require('express');
-var router = express.Router();
-
-/* GET home page. */
-// list of projects, link to project.pug  
-// users/:id
-// users/:id/projects
-// projects/create
-// projects/:id
-// projects/:id/edit
-// projects/:id/delete
+const express = require('express');
+const router = express.Router();
 
 // controllers:
 // users
@@ -21,7 +12,6 @@ router.get('/', function (req, res, next) {
     let query_str = "select * from projects natural join users";
     db.query(query_str)
     .then(results => {
-        // console.log(results.results);
         res.render('index', { title: '', session: req.session, projects: results });
     })
     .catch(error => {
