@@ -24,8 +24,6 @@ html
                             li.nav-item 
                                 a.nav-link(href=`/users/${session.user_id}`) Profile
                         li.nav-item
-                            a.nav-link(href="/wallet") Wallet
-                        li.nav-item
                             if !session.user_id
                                 a.nav-link(href="/login") Log in
                             else 
