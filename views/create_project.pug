@@ -2,6 +2,7 @@ extends layout
 
 block content
     h4.mb-3 Create a project
+    p Need to be logged in.
     form(action="/projects/create", method="post", id="create_project")
         .form-group 
             label(for="title") Title
@@ -22,3 +23,6 @@ block content
         button.btn.btn-primary.mb-4(type="submit") Create
 
         //- popup to unlock the seed and generate scriptPubKey
+
+block append scripts
+    script(src="/js/create_project.js")

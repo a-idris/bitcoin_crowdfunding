@@ -12,7 +12,7 @@ router.get('/', function (req, res, next) {
     let query_str = "select * from projects natural join users";
     db.query(query_str)
     .then(results => {
-        res.render('index', { title: '', session: req.session, projects: results });
+        res.render('index', { title: '', projects: results });
     })
     .catch(error => {
         console.log(error);

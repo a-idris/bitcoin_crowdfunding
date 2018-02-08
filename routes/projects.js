@@ -1,11 +1,6 @@
 var express = require('express');
 var router = express.Router();
 
-// projects/create
-// projects/:id
-// projects/:id/edit
-// projects/:id/delete
-
 var db = require('../src/database').get_db();
 
 //project creation routes
@@ -19,20 +14,49 @@ router.get('/create', function (req, res, next) {
 
 router.post('/create', function (req, res, next) {
     if (!req.session.user_id) {
-        res.redirect('/');
+        res.redirect('/login');
     } 
-    
+    console.log(req.body);
     if (validate_project_submission(req.body)) {
         let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
-        values = [req.body.user_id, req.body.title, req.body.short_description, req.body.description, req.body.scriptPubKey, req.body.fund_goal, req.body.deadline];
+        values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.scriptPubKey, req.body.fund_goal, req.body.deadline];
         //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
-        db.query(query_str, [registration_details.username, hash, "seed"])
+        db.query(query_str, values)
         .then(results => { 
             let project_id = results.insertId;
-            res.redirect(`/projects/${project_id}`);
+            if (project_id) {
+                res.redirect(`/projects/${project_id}`);
+            } else {
+                return Promise.reject(new Error('Insert operation failed'));            
+            }
+        })
+        .catch(error => {
+            console.log(error);
+            next(error); // 500 
         }); 
+    } else {
+        let err = new Error("Invalid form data");
+        err.status = 400;
+        next(err);
     }
 });
+
+// .then(_ => {
+//     if (validate_text(req.body.update)) {
+//         let query_str = "insert into project_updates values (NULL, ?, ?, now())";
+//         return db.query(query_str, [project_id, req.body.update]);
+//     } else {
+//         let err = new Error("Invalid form data");
+//         err.status = 400;
+//         return Promise.reject(err);
+//     }
+// })
+// .then(results => {
+
+// })
+
+
+
 
 function validate_project_submission(submission) {
     return true;

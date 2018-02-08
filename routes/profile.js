@@ -8,7 +8,7 @@ router.get('/', function(req, res, next) {
     let query_str = "select * from users";
     db.query(query_str)
     .then(results => {
-        res.render('users', {title: 'users', session: req.session, users: results});
+        res.render('users', {title: 'users', users: results});
     })
     .catch(error => {
         console.log(error);
@@ -46,9 +46,9 @@ router.get('/:id', function(req, res, next) {
     })
     .then(pledge_results => {
         user_pledges = pledge_results;
+        console.log("pledges", user_pledges, Boolean(user_pledges));
         res.render('profile', { 
             title: 'profile',
-            session: req.session, 
             user: user,
             projects: user_projects,
             pledges: user_pledges

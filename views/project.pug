@@ -10,7 +10,7 @@ block content
 
             h2 #{project.title}
             p.my-0 proposed by #[a(href=`/users/${project.user_id}`) #{project.username}]
-            h6.small.mb2=project.deadline 
+            h6.small.mb2=project.date_added 
             
             h4 Project Description
             p #{project.description}

@@ -5,7 +5,7 @@ const bcrypt = require('bcrypt');
 const db = require('../src/database').get_db();
 
 router.get('/', function(req, res, next) {
-    res.render('login', {title: 'login', session: req.session});
+    res.render('login', {title: 'login'});
 }); 
 
 router.post('/', function(req, res, next) {
