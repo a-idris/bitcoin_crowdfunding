@@ -19,7 +19,7 @@ router.post('/create', function (req, res, next) {
     console.log(req.body);
     if (validate_project_submission(req.body)) {
         let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
-        values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.scriptPubKey, req.body.fund_goal, req.body.deadline];
+        let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.scriptPubKey, req.body.fund_goal, req.body.deadline];
         //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
         db.query(query_str, values)
         .then(results => { 
@@ -40,23 +40,6 @@ router.post('/create', function (req, res, next) {
         next(err);
     }
 });
-
-// .then(_ => {
-//     if (validate_text(req.body.update)) {
-//         let query_str = "insert into project_updates values (NULL, ?, ?, now())";
-//         return db.query(query_str, [project_id, req.body.update]);
-//     } else {
-//         let err = new Error("Invalid form data");
-//         err.status = 400;
-//         return Promise.reject(err);
-//     }
-// })
-// .then(results => {
-
-// })
-
-
-
 
 function validate_project_submission(submission) {
     return true;
@@ -196,5 +179,116 @@ router.post('/:id/add_update', function (req, res, next) {
 function validate_text(comment) {
     return true;
 }
+
+router.post('/:id/make_pledge', function (req, res, next) {
+    // TODO: make it a transaction
+
+    if (!req.session.user_id) {
+        res.redirect('/login');
+    } 
+
+    if (validate_pledge(req.body)) {
+        // amount, txid, vout, signature
+        console.log("pledging", req.body);
+
+        let project_id = req.params.id;
+        let project;
+        // get project info
+        let query_str = "select * from projects where project_id=?";
+        db.query(query_str, [project_id])
+        .then(project_results => {
+            project = project_results[0];
+            if (!project) {
+                let err = new Error("No such project");
+                err.status= 400;
+                return Promise.reject(err);
+            }
+            // insert into pledge inputs to get input_id  
+            query_str = "insert into pledge_inputs values (NULL, ?, ?, ?)";
+            var values = [ req.body.txid, req.body.vout, req.body.signature ];
+            //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
+            return db.query(query_str, values);
+        })  
+        .then(results => { 
+            let input_id = results.insertId;
+            if (input_id) {
+                query_str = "insert into pledges values (NULL, ?, ?, ?, ?, now())";
+                values = [ req.session.user_id, project_id, input_id, req.body.amount ] 
+                return db.query(query_str, values);
+            } else {
+                return Promise.reject(new Error('Insert operation failed'));            
+            }
+        })
+        .then(results => {
+            let pledge_id = results.insertId;
+            if (pledge_id) {
+                // need time checks. 
+                // update the amount_pledged for the project in the projects table
+                let new_amount_pledged = project.amount_pledged + req.body.amount;
+                query_str = "update projects set amount_pledged=? where project_id=?";
+                values = [new_amount_pledged, project_id];
+                return db.query(query_str, values);
+            } else {
+                return Promise.reject(new Error('Insert operation failed'));                            
+            }
+        })
+        .then(results => {
+            // check affectedRows attribute to see if the operation succeeded
+            if (results.affectedRows == 1) {
+                // need time checks. 
+                res.status(200).json({ status: 200 });
+                return;
+            } else {
+                return Promise.reject(new Error('Update operation failed'));
+            }
+        })
+        .catch(error => {
+            res.status(error.status || 500).json({ 
+                status: error.status || 500,
+                message: error.message 
+            });
+        }); 
+    } else {
+        res.status(400).json({ 
+            status: 400,
+            message: "Invalid form data" 
+        });
+    }
+});
+
+function validate_pledge(pledge) {
+    // amount, txid, vout, signature
+    //convert from strings to int
+    pledge.amount = Number(pledge.amount);
+    pledge.vout = Number(pledge.vout);
+    if (isNaN(pledge.amount) || isNaN(pledge.vout)) {
+        return false;
+    }
+    return true;
+}
+
+
+// if (validate_project_submission(req.body)) {
+//     let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
+//     values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.scriptPubKey, req.body.fund_goal, req.body.deadline];
+//     //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
+//     db.query(query_str, values)
+//     .then(results => { 
+//         let project_id = results.insertId;
+//         if (project_id) {
+//             res.redirect(`/projects/${project_id}`);
+//         } else {
+//             return Promise.reject(new Error('Insert operation failed'));            
+//         }
+//     })
+//     .catch(error => {
+//         console.log(error);
+//         next(error); // 500 
+//     }); 
+// } else {
+//     let err = new Error("Invalid form data");
+//     err.status = 400;
+//     next(err);
+// }
 
 module.exports = router;

@@ -5,9 +5,9 @@ block content
     form.form-login(action="/register", method="post", id="register")
         .form-group 
             label(for="username") Username
-            input.form-control(type="text", name="username", id="username", placeholder="username" required)
+            input.form-control(type="text", name="username", id="username", placeholder="username", required="true")
         .form-group
             label(for="password") Password
-            input.form-control(type="password", name="password", id="password", placeholder="password" required)
+            input.form-control(type="password", name="password", id="password", placeholder="password", required="true")
         button.btn.btn-primary(type="submit") Register
 

@@ -26,3 +26,7 @@ body {
 .progress-thin {
     height: 7px;
 }
+
+#make_pledge input[name="amount"] {
+    max-width: 300px;
+}

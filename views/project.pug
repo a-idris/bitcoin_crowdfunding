@@ -26,7 +26,23 @@ block content
                         span #{progress_str}
             p Deadline: #{project.deadline}
 
-            button#pledge.btn.btn-primary make pledge
+            button#pledge.btn.btn-primary(data-toggle="collapse" data-target="#make_pledge") make pledge
+
+            //- collapsible
+            form.mt-3.collapse(action=`/projects/${project.project_id}/make_pledge`, method="post", id="make_pledge")
+                //- amount, txid, vout, signature
+                .form-group 
+                    label(for="amount") Amount 
+                    .input-group
+                        input.form-control(type="number", name="amount", id="amount", min="1", required="true")
+                        .input-group-append
+                            span.input-group-text BTC
+                //- hidden fields to set  
+                //- input(type="hidden", name="txid", id="txid")
+                //- input(type="hidden", name="vout", id="txid")
+                //- input(type="hidden", name="signature", id="txid")
+                button.btn.btn-primary.btn-sm(type="submit") Submit
+
 
         if updates
             h4 Updates      
@@ -70,3 +86,6 @@ block content
                                 p= comment.comment
                             .card-footer
                                 | posted by #[a(href=`/users/${comment.user_id}`) #{comment.username}] on #{comment.comment_time}
+
+block append scripts
+    script(src="/js/make_pledge.js")

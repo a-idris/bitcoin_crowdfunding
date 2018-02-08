@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "watch": "watchify src/wallet.js -o public/js/bundle.js -v && watchify client_js/create_project.js -o public/js/create_project.js -v",
-    "build": "browserify src/wallet.js -o public/js/bundle.js && browserify client_js/create_project.js -o public/js/create_project.js",
+    "watch": "watchify src/wallet.js -o public/js/bundle.js -v",
+    "build": "browserify src/wallet.js -o public/js/bundle.js && browserify client_js/create_project.js -o public/js/create_project.js && browserify client_js/make_pledge.js -o public/js/make_pledge.js",
     "start": "npm run build & node ./bin/www",
     "devstart": "npm run watch & nodemon ./bin/www"
   },
