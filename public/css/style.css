@@ -30,3 +30,7 @@ body {
 #make_pledge input[name="amount"] {
     max-width: 300px;
 }
+
+#mnemonic {
+    /* width: 550px; */
+}

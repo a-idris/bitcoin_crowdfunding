@@ -6,7 +6,7 @@ create table users (
 	user_id int not null auto_increment,
 	username varchar(30) not null,
 	password_hash char(60) not null, 
-	encrypted_seed varchar(255) not null, -- blob
+	xpub_key varchar(200) not null, -- blob
 	date_joined datetime not null,
 	primary key (user_id),
 	unique (username)
@@ -56,7 +56,7 @@ create table pledge_inputs (
 	input_id int not null auto_increment,
 	txid varchar(100) not null, -- unique 
 	vout smallint not null, 
-	signature varchar(100) not null, 
+	signature varchar(500) not null, 
 	primary key (input_id)
 );
 

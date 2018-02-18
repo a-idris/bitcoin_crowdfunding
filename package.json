@@ -3,13 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "browserify client_js/create_project.js -o public/js/bundle/create_project.js && browserify client_js/make_pledge.js -o public/js/bundle/make_pledge.js",
+    "build": "browserify client_js/create_project.js -o public/js/bundle/create_project.js && browserify client_js/make_pledge.js -o public/js/bundle/make_pledge.js && browserify client_js/register.js -o public/js/bundle/register.js",
     "start": "npm run build & node ./bin/www",
     "devstart": "npm run build & nodemon ./bin/www"
   },
   "dependencies": {
     "bcrypt": "^1.0.3",
     "bitcore-lib": "^0.15.0",
+    "bitcore-mnemonic": "^1.5.0",
     "body-parser": "~1.18.2",
     "cookie-parser": "~1.4.3",
     "cookie-session": "^2.0.0-beta.3",

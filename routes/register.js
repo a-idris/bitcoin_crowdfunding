@@ -16,23 +16,25 @@ router.post('/', function(req, res, next) {
         res.redirect(`/users/${user_id}`);
     })
     .catch(err => {
+        console.log("registration error:", err);
         res.redirect('/register?error=denied'); //pass req.params + json error message
     });
 });
 
 function validate(registration_details) {
     // nonempty
-    if (!registration_details.username || !registration_details.password)
+    if (!registration_details.username || !registration_details.password || !registration_details.xpub_key)
         return Promise.resolve(false);
     // user doesn't exist already
     let query_str = "select * from users where username=?";
     let validation_promise = db.query(query_str, [registration_details.username])
     .then(results => {
         console.log("dbresults", results);
-        // return true if no results found
+        // return false if clashing username else return the registration_details object back
         if (!results.length) {
             return registration_details;
         } 
+        // todo: throw error + ajax
         return false;
     });
     return validation_promise;
@@ -45,7 +47,7 @@ function save_details(registration_details) {
         //save to db 
         let query_str = "insert into users values (NULL, ?, ?, ?, now())";
         //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
-        return db.query(query_str, [registration_details.username, hash, "seed"]).then(results => results.insertId); 
+        return db.query(query_str, [registration_details.username, hash, registration_details.xpub_key]).then(results => results.insertId); 
     });
 };
 

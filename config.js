@@ -13,4 +13,6 @@ config.session = {
 	keys: ["7U#ztuRAqb$ww9"]
 }
 
+config.network = "testnet";
+
 module.exports = config
