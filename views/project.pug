@@ -37,10 +37,10 @@ block content
                         input.form-control(type="number", name="amount", id="amount", min="1", required="true")
                         .input-group-append
                             span.input-group-text BTC
+                .form-group 
+                    label(for="amount") Mnemonic Passphrase
+                    input.form-control(type="text", name="mnemonic", id="mnemonic", required="true", value=`${session.mnemonic}`) 
                 //- hidden fields to set  
-                //- input(type="hidden", name="txid", id="txid")
-                //- input(type="hidden", name="vout", id="txid")
-                //- input(type="hidden", name="signature", id="txid")
                 button.btn.btn-primary.btn-sm(type="submit") Submit
 
 

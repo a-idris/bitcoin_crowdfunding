@@ -1,4 +1,4 @@
-const wallet = require('../src/key_management.js')
+const wallet = require('../src/key_management.js');
 
 $(document).ready(function() {
     $("#mnemonic").val(wallet.generateMnemonic().toString());
@@ -7,7 +7,7 @@ $(document).ready(function() {
         let code = $('#mnemonic').val();
         if (wallet.validateMnemonic(code)) {
             let seed_passphrase = $('seed_passphrase').val();
-            let xpub = wallet.generateXpub(code, seed_passphrase);
+            let xpub = wallet.generateXpub(code, seed_passphrase).toString();
             $('#xpub_key').val(xpub);
         } else {
             event.preventDefault();

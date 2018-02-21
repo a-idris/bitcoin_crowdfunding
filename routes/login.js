@@ -11,13 +11,26 @@ router.get('/', function(req, res, next) {
 router.post('/', function(req, res, next) {
     //return json
     authenticate(req.body)
-    .then(user_id => {
-        if (user_id === false) {
+    .then(user => {
+        if (user.user_id === false) {
             res.redirect('/login?error=denied');
         } else {
-            req.session.user_id = user_id;
-            res.redirect('/');
+            let query_str = "select * from hd_indices where user_id=?";        
+            return db.query(query_str, [user.user_id]).then(results => {
+                let indices = results[0];
+                if (indices) {
+                    res.cookie('xpub_key', user.xpub_key);
+                    res.cookie('change_index', indices.change_index);
+                    res.cookie('external_index', indices.external_index);
+                    // pass along the user_id
+                    return user.user_id;
+                }  
+            });
         }
+    })
+    .then(user_id => {
+        req.session.user_id = user_id;
+        res.redirect('/');
     })
     .catch(error => {
         console.log(error);
@@ -42,8 +55,8 @@ function authenticate(login_details) {
     .then(user => {
         //password hash matches
         if (user && bcrypt.compare(login_details.password, user.password_hash)) {
-            // return the id
-            return user.user_id;
+            // return the user details
+            return user;
         }
         return false;
     });

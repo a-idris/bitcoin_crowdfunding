@@ -25,7 +25,16 @@ router.post('/create', function (req, res, next) {
         .then(results => { 
             let project_id = results.insertId;
             if (project_id) {
-                res.redirect(`/projects/${project_id}`);
+                // update wallet indices.
+                let query_str = "update hd_indices set external_id=? where user_id=?";
+                return db.query(query_str, [req.cookies.external_index + 1, req.session.user_id])
+                .then(results => {
+                    if (results.insertId) {
+                        res.redirect(`/projects/${project_id}`);
+                    } else {
+                        return Promise.reject(new Error('Update operation failed'));            
+                    }
+                });
             } else {
                 return Promise.reject(new Error('Insert operation failed'));            
             }

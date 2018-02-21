@@ -19,7 +19,7 @@ block content
         .form-group 
             label(for="deadline") Deadline 
             input.form-control(type="datetime-local", name="deadline", id="deadline", required="true")
-        
+        input(type="hidden", name="scriptPubKey")
         button.btn.btn-primary.mb-4(type="submit") Create
 
         //- popup to unlock the seed and generate scriptPubKey

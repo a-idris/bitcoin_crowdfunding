@@ -12,6 +12,25 @@ create table users (
 	unique (username)
 );
 
+drop table if exists mnemonics;
+create table mnemonics (
+	mnemonic_id int not null auto_increment,
+	user_id int not null,
+	mnemonic varchar(100) not null,
+	primary key (mnemonic_id),
+	foreign key (user_id) references users(user_id) on delete cascade
+);
+
+drop table if exists hd_indices;
+create table hd_indices (
+	index_id int not null auto_increment,
+	user_id int not null,
+	change_index int not null,
+	external_index int not null,	
+	primary key (index_id),
+	foreign key (user_id) references users(user_id) on delete cascade
+);
+
 drop table if exists projects; -- currency?, rewards?, media / images
 create table projects (
 	project_id int not null auto_increment,

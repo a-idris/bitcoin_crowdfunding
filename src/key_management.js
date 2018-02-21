@@ -1,9 +1,16 @@
 const bitcore = require('bitcore-lib');
 const Mnemonic = require('bitcore-mnemonic');
 
-var network = bitcore.Networks.testnet;
-// if regtest
-bitcore.Networks.enableRegtest(); 
+const config = require('../config.js');
+var networkType = config.network;
+
+bitcore.Networks.defaultNetwork = bitcore.Networks.testnet;
+if (networkType == "mainnet") {
+    bitcore.Networks.defaultNetwork = bitcore.Networks.livenet;
+} else if (networkType == "regtest") {
+    bitcore.Networks.enableRegtest(); 
+}
+
 
 // need this BIP-44 compliant path stem to be able to parse xpub on blockchain.info. 
 // 44' - BIP, 0'/1' - bitcoin/ bitcoin testnet, 0' - account, 0/1 - external/internal. use internal only for change addresses
@@ -33,8 +40,20 @@ wallet.generateXpriv = function (code, seed_passphrase) {
 }
 
 wallet.generateXpub = function(code, seed_passphrase) {
-    let xpriv = wallet.generateXpriv(code, seed_passphrase) 
-    return xpriv.hdPublicKey.toString();
+    let xpriv = wallet.generateXpriv(code, seed_passphrase);
+    let coinType = 1;
+    // generate xpub starting from the user's account. 
+    let xpub_path = `M/44'/${coinType}'/0'`; 
+    return xpriv.derive(xpub_path).hdPublicKey;
+}
+
+wallet.derive = function(xpub, path) {
+    xpub = new HDPublicKey(xpub); // if arg is HDPublicKey, will return itself. If string will instantiate HDPublicKey
+    return xpub.derive(path);
+}
+
+wallet.getAddress = function(xpub) {
+    return new bitcore.Address(xpub.publicKey);
 }
 
 wallet.getPath = function(index, isChange, isTestnet) {
