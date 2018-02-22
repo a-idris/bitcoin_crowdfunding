@@ -25,15 +25,8 @@ router.post('/create', function (req, res, next) {
         .then(results => { 
             let project_id = results.insertId;
             if (project_id) {
-                // update wallet indices.
-                let query_str = "update hd_indices set external_id=? where user_id=?";
-                return db.query(query_str, [req.cookies.external_index + 1, req.session.user_id])
-                .then(results => {
-                    if (results.insertId) {
-                        res.redirect(`/projects/${project_id}`);
-                    } else {
-                        return Promise.reject(new Error('Update operation failed'));            
-                    }
+                return update_hd_indices(req, res).then(_ => {
+                    res.redirect(`/projects/${project_id}`);
                 });
             } else {
                 return Promise.reject(new Error('Insert operation failed'));            
@@ -49,6 +42,20 @@ router.post('/create', function (req, res, next) {
         next(err);
     }
 });
+
+function update_hd_indices(req, res) {
+    let new_external_index = Number(req.cookies.external_index) + 1; // just increment
+    let query_str = "update hd_indices set external_index=? where user_id=?";
+    return db.query(query_str, [new_external_index, req.session.user_id])
+    .then(results => {
+        if (results.affectedRows == 1) {
+            // update cookies
+            res.cookie('external_index', new_external_index);
+            return Promise.resolve();
+        }
+        return Promise.reject(new Error('Update operation failed'));            
+    });
+}
 
 function validate_project_submission(submission) {
     return true;
