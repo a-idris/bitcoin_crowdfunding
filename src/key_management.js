@@ -11,55 +11,58 @@ if (networkType == "mainnet") {
     bitcore.Networks.enableRegtest(); 
 }
 
-
 // need this BIP-44 compliant path stem to be able to parse xpub on blockchain.info. 
 // 44' - BIP, 0'/1' - bitcoin/ bitcoin testnet, 0' - account, 0/1 - external/internal. use internal only for change addresses
 // m/44'/0'/0'/0 
 
 // manually keep track of external and internal indices for easy new address generation
 
-var wallet = {}
+var keyutils = {}
 
 var HDPrivateKey = bitcore.HDPrivateKey;
 var HDPublicKey = bitcore.HDPublicKey;
 
-wallet.generateMnemonic = function() {
+keyutils.generateMnemonic = function() {
     // BIP-0039
     let code = new Mnemonic();
     console.log(code.toString());
     return code;
 }
 
-wallet.validateMnemonic = function(code) {
+keyutils.validateMnemonic = function(code) {
     return Mnemonic.isValid(code);
 }
 
-wallet.generateXpriv = function (code, seed_passphrase) {
+keyutils.generateXpriv = function (code, seed_passphrase) {
     let mnemonic = new Mnemonic(code);
-    return mnemonic.toHDPrivateKey(seed_passphrase); //optional passphrase
+    let root = mnemonic.toHDPrivateKey(seed_passphrase); //optional passphrase
+    let coinType = (bitcore.Networks.defaultNetwork == bitcore.Networks.testnet) ? 1 : 0;
+    // generate xpriv starting from the user's account. 
+    let root_path = `M/44'/${coinType}'/0'`; 
+    return root.derive(root_path);
 }
 
-wallet.generateXpub = function(code, seed_passphrase) {
-    let xpriv = wallet.generateXpriv(code, seed_passphrase);
-    let coinType = 1;
-    // generate xpub starting from the user's account. 
-    let xpub_path = `M/44'/${coinType}'/0'`; 
-    return xpriv.derive(xpub_path).hdPublicKey;
+keyutils.generateXpub = function(code, seed_passphrase) {
+    let xpriv = keyutils.generateXpriv(code, seed_passphrase);
+    return xpriv.hdPublicKey;
 }
 
-wallet.derive = function(xpub, path) {
-    xpub = new HDPublicKey(xpub); // if arg is HDPublicKey, will return itself. If string will instantiate HDPublicKey
-    return xpub.derive(path);
+keyutils.derive = function(xkey, type, path) {
+    if (type === "xpub") {
+        // if arg is HDPublicKey, will return itself. If string will instantiate HDPublicKey
+        xkey = new HDPublicKey(xkey); 
+    } else if (type == "xpriv") {
+        xkey = new HDPrivateKey(xkey);
+    }
+    return xkey.derive(path);
 }
 
-wallet.getAddress = function(xpub) {
-    return new bitcore.Address(xpub.publicKey);
+keyutils.getAddress = function(xkey) {
+    if (xkey instanceof HDPrivateKey) {
+        return xkey.privateKey.toAddress();
+    } else if (xkey instanceof HDPublicKey) {
+        return new bitcore.Address(xkey.publicKey);
+    }
 }
 
-wallet.getPath = function(index, isChange, isTestnet) {
-    let coinType = isTestnet ? 1 : 0;
-    let roleType = isChange ? 1 : 0;
-    return `m/44'/${coinType}'/0'/${roleType}/${index}`;
-}
-
-module.exports = wallet;
+module.exports = keyutils;

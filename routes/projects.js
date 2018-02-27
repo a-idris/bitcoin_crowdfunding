@@ -1,6 +1,8 @@
 var express = require('express');
 var router = express.Router();
 
+var blockchain = require('../src/api');
+var wallet = require('../src/wallet');
 var db = require('../src/database').get_db();
 
 //project creation routes
@@ -206,6 +208,29 @@ router.post('/:id/make_pledge', function (req, res, next) {
         });
     } 
 
+    blockchain.getbalance(req.cookies.xpub_key, function(err, balance) {
+        if (err) {
+            res.status(500).json({
+                status: 500,
+                message: err.message
+            });
+        } else if (req.body.amount > balance) {
+            res.status(400).json({
+                status: 400,
+                message: "Insufficient funds"
+            });
+        } else {
+            // craft transaction to have output with the exact amount
+            blockchain.getunspent(req.cookies.xpub_key, function(err, utxos) {
+                let inputs = wallet.chooseInputs(utxos, req.body.amount);
+                // return the inputs to be created into a transaction
+                res.json(inputs);
+            });
+        }
+    });
+
+    return;
+    
     if (validate_pledge(req.body)) {
         // amount, txid, vout, signature
         console.log("pledging", req.body);

@@ -1,4 +1,4 @@
-const wallet = require('../src/key_management.js');
+const keyutils = require('../src/key_management.js');
 
 $(document).ready(function() {
     $('form#create_project').on('submit', function(event) {
@@ -8,9 +8,9 @@ $(document).ready(function() {
 
 function generateScriptPubKey() {
     let cookie = parseCookie();
-    var xpub = wallet.derive(cookie.xpub_key, `M/${cookie.external_index}`);
+    var xpub = keyutils.derive(cookie.xpub_key, 'xpub',  `M/${cookie.external_index}`);
     // convert to address
-    return wallet.getAddress(xpub).toString();
+    return keyutils.getAddress(xpub).toString();
 }
 
 function parseCookie() {

@@ -39,8 +39,8 @@ create table projects (
 	short_description varchar(80) default null, 
 	description varchar(500) default null, -- blob
 	scriptPubKey varchar(200) not null, -- blob , unique
-	fund_goal int not null, -- float
-	amount_pledged int default 0,
+	fund_goal bigint not null, -- float
+	amount_pledged bigint default 0,
 	date_added datetime not null,
 	deadline datetime,
 	primary key (project_id),
@@ -85,7 +85,7 @@ create table pledges (
 	user_id int not null, 
 	project_id int not null, 
 	input_id int not null, 
-	amount int not null,
+	amount bigint not null,
 	pledge_time datetime not null,
 	primary key (pledge_id),
 	foreign key (user_id) references users(user_id) on delete cascade,
