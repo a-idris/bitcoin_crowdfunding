@@ -208,6 +208,25 @@ router.post('/:id/make_pledge', function (req, res, next) {
         });
     } 
 
+    let stage = req.body.stage;
+    if (!stage) {
+    // if (!req.body.hasOwnProperty("stage")) {
+        generateInputs(req, res);
+    } else if (stage == "transmitExactAmount") {
+        transmitExactAmount(req, res);
+    } else if (stage == "transmitPartial") {
+        transmitPartial(req, res);
+    }
+});
+
+function generateInputs(req, res) {
+    if (!validate_pledge(req.body)) {
+        res.status(400).json({ 
+            status: 400,
+            message: "Invalid form data" 
+        });
+    }
+    
     blockchain.getbalance(req.cookies.xpub_key, function(err, balance) {
         if (err) {
             res.status(500).json({
@@ -228,9 +247,15 @@ router.post('/:id/make_pledge', function (req, res, next) {
             });
         }
     });
+}
+
+function transmitExactAmount(req, res) {
+    // todo: post tx to blockchain.info
 
     return;
-    
+}
+
+function transmitPartial(req, res) {
     if (validate_pledge(req.body)) {
         // amount, txid, vout, signature
         console.log("pledging", req.body);
@@ -298,14 +323,14 @@ router.post('/:id/make_pledge', function (req, res, next) {
             message: "Invalid form data" 
         });
     }
-});
+}
 
 function validate_pledge(pledge) {
     // amount, txid, vout, signature
     //convert from strings to int
     pledge.amount = Number(pledge.amount);
-    pledge.vout = Number(pledge.vout);
-    if (isNaN(pledge.amount) || isNaN(pledge.vout)) {
+    // pledge.vout = Number(pledge.vout);
+    if (isNaN(pledge.amount)) {// || isNaN(pledge.vout)) {
         return false;
     }
     return true;

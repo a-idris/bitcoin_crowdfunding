@@ -14,7 +14,7 @@ wallet.chooseInputs = function(utxos, amount) {
             'txid': utxos[i].tx_hash_big_endian, 
             'vout': Number(utxos[i].tx_output_n),
             'scriptPubKey': utxos[i].script,
-            'satoshis': Number(utxos[i].amount), //amount is in satoshis
+            'satoshis': utxos[i].value, // value is in satoshis
             'hd_path': utxos[i].xpub.path
         };
         inputs.push(inputObj);
@@ -32,13 +32,14 @@ wallet.createExactAmount = function(inputs, amount, xpriv, external_index, chang
         // also need address attribute
         inputObj.address = corresponding_priv_key.toAddress();
         delete inputObj.hd_path;
+        return inputObj;
     });
 
     //add output
     //generate output address and change address 
     let xpub = xpriv.hdPublicKey;
-    let output_address = key_utils.toAddress(key_utils.derive(xpub, `m/${external_index + 1}`));    
-    let change_address = key_utils.toAddress(key_utils.derive(xpub, `m/${change_index + 1}`));
+    let output_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index + 1}`));    
+    let change_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/1/${change_index + 1}`));
 
     // craft the transaction
     let transaction = new bitcore.Transaction()
@@ -48,11 +49,11 @@ wallet.createExactAmount = function(inputs, amount, xpriv, external_index, chang
         .sign(private_keys);
 
     // returns error message if invalid 
-    let err = transaction.verify();
-    if (err) {
-        throw new Error(err);
+    let result = transaction.verify();
+    if (result === true) {
+        return transaction.serialize();
     }
-    return transaction.serialize();
+    throw new Error(result);
 }
 
 module.exports = wallet;

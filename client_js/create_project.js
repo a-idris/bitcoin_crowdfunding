@@ -8,7 +8,7 @@ $(document).ready(function() {
 
 function generateScriptPubKey() {
     let cookie = parseCookie();
-    var xpub = keyutils.derive(cookie.xpub_key, 'xpub',  `M/${cookie.external_index}`);
+    var xpub = keyutils.derive(cookie.xpub_key, 'xpub', `M/${cookie.external_index}`);
     // convert to address
     return keyutils.getAddress(xpub).toString();
 }
