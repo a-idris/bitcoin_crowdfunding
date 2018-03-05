@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const db = require('../src/database').get_db();
+const blockchain = require('../src/api');
 
 // list of users
 router.get('/', function(req, res, next) {
@@ -50,13 +51,24 @@ router.get('/:id', function(req, res, next) {
     })
     .then(pledge_results => {
         user_pledges = pledge_results;
-        console.log("pledges", user_pledges, Boolean(user_pledges));
-        res.render('profile', { 
-            title: 'profile',
-            user: user,
-            projects: user_projects,
-            pledges: user_pledges
-        });    
+
+        blockchain.getbalance(req.cookies.xpub_key, function(err, balance) {
+            if (err) {
+                return Promise.reject(err);
+            } else {
+                wallet = {
+                    balance: balance
+                };
+
+                res.render('profile', { 
+                    title: 'profile',
+                    user: user,
+                    projects: user_projects,
+                    pledges: user_pledges,
+                    wallet: wallet
+                });    
+            }
+        });
     })
     .catch(error => {
         console.log(error);

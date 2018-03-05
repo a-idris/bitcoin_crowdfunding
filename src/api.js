@@ -1,4 +1,5 @@
 var http = require('http');
+var request = require('request');
 
 var api = {};
 
@@ -36,5 +37,18 @@ api.getunspent = function(xpub, callback) {
         });
     });    
 };
+
+api.sendtx = function(rawtx, callback) {
+    request.post(host + "pushtx", { form: { tx: rawtx } }, function(err, response, body) {
+        console.log('Status:', response.statusCode);
+        console.log('Headers:', JSON.stringify(response.headers));
+        console.log('Response:', body);
+        if (err) {
+            callback(err);
+        } else {
+            callback(null, { status: response.statusCode, message: body });
+        }
+    });
+}
 
 module.exports = api;

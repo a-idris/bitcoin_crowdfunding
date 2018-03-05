@@ -2,11 +2,11 @@ const keyutils = require('../src/key_management.js');
 
 $(document).ready(function() {
     $('form#create_project').on('submit', function(event) {
-        $("input[name='scriptPubKey']").val(generateScriptPubKey());        
+        $("input[name='address']").val(generateAddress());        
     });
 });
 
-function generateScriptPubKey() {
+function generateAddress() {
     let cookie = parseCookie();
     var xpub = keyutils.derive(cookie.xpub_key, 'xpub', `M/${cookie.external_index}`);
     // convert to address

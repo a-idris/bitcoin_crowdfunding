@@ -37,8 +37,8 @@ create table projects (
 	user_id int not null,
 	title varchar(50) not null, 
 	short_description varchar(80) default null, 
-	description varchar(500) default null, -- blob
-	scriptPubKey varchar(200) not null, -- blob , unique
+	description text default null, -- blob
+	address varchar(40) not null, -- blob , unique, length(35)
 	fund_goal bigint not null, -- float
 	amount_pledged bigint default 0,
 	date_added datetime not null,
@@ -51,7 +51,7 @@ drop table if exists project_updates; -- currency?
 create table project_updates (
 	project_update_id int not null auto_increment,
 	project_id int not null,
-	update_description varchar(500) not null,
+	update_description text not null,
 	update_time datetime,
 	primary key (project_update_id),
 	foreign key (project_id) references projects(project_id) on delete cascade
@@ -63,7 +63,7 @@ create table project_comments (
 	project_comment_id int not null auto_increment,
 	project_id int not null,
 	user_id int not null,	
-	comment varchar(500) not null,
+	comment text not null,
 	comment_time datetime,
 	primary key (project_comment_id),
 	foreign key (project_id) references projects(project_id) on delete cascade,
@@ -73,9 +73,12 @@ create table project_comments (
 drop table if exists pledge_inputs;
 create table pledge_inputs (
 	input_id int not null auto_increment,
-	txid varchar(100) not null, -- unique 
-	vout smallint not null, 
-	signature varchar(500) not null, 
+	prevTxId char(64) not null, -- unique 
+	outputIndex int not null, 
+	sequenceNumber int not null, 
+	script text not null,
+	output_satoshis int not null,
+	output_script text not null,
 	primary key (input_id)
 );
 

@@ -38,8 +38,8 @@ wallet.createExactAmount = function(inputs, amount, xpriv, external_index, chang
     //add output
     //generate output address and change address 
     let xpub = xpriv.hdPublicKey;
-    let output_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index + 1}`));    
-    let change_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/1/${change_index + 1}`));
+    let output_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index}`));    
+    let change_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/1/${change_index}`));
 
     // craft the transaction
     let transaction = new bitcore.Transaction()
@@ -51,9 +51,58 @@ wallet.createExactAmount = function(inputs, amount, xpriv, external_index, chang
     // returns error message if invalid 
     let result = transaction.verify();
     if (result === true) {
-        return transaction.serialize();
+        return transaction;
     }
     throw new Error(result);
+}
+
+
+const SIGHASH_ALL_ANYONECANPAY = bitcore.crypto.Signature.SIGHASH_ALL | bitcore.crypto.Signature.SIGHASH_ANYONECANPAY;
+
+// todo
+// function txOutputToInput(txObj, index)
+// function createPartial(input, output);
+
+function createPartial(prevTransaction, outputInfo, privateKey) {
+    // create the input from the transaction object. 
+    let inputObj = {};
+    inputObj.prevTxId = transactionObject.hash;
+    inputObj.outputIndex = 0; // will always be 0 index because of the way the tx is created
+    // leave default sequence number
+    // inputObj.sequenceNumber = bitcore.Transaction.Input.DEFAULT_SEQNUMBER;
+    
+    inputObj.output = transactionObject.outputs[inputObj.outputIndex];
+    // inputObj.script = inputObj.output.script;
+
+    let output = new bitcore.Transaction.Output({
+        script: new bitcore.Script(new Address(outputInfo.address)),
+        amount: outputInfo.amount
+    });
+
+    let input = new bitcore.Transaction.Input(inputObj);
+    let unsigned_tx = new bitcore.Transaction()
+        .addInput(input)
+        .addOutput(output);
+
+    // get the signature for the input and apply it, with sigtype SIGHASH_ALL | SIGHASH_ANYONECANPAY
+    let pubkeyHash = bitcore.crypto.Hash.sha256ripemd160(privateKey.publicKey.toBuffer());
+    let transactionSignature = input.getSignatures(unsigned_tx, privateKey, 0, SIGHASH_ALL_ANYONECANPAY, pubkeyHash)[0]; //only 1 input, length of returned array = 1
+    unsigned_tx.applySignature(transactionSignature);
+    
+    let result = transaction.verify();
+    if (true) {
+        return transaction;
+    }
+    // toObject.inputs[0].toBuffer.tohex()
+    // 
+}
+
+wallet.toBtc = function(satoshis) {
+    return bitcore.Unit.fromSatoshis(satoshis).toBTC();
+}
+
+wallet.toSatoshis = function(btc) {
+    return bitcore.Unit.fromBTC(btc).toSatoshis();
 }
 
 module.exports = wallet;

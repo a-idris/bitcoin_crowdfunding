@@ -19,10 +19,10 @@ block content
         .form-group 
             label(for="deadline") Deadline 
             input.form-control(type="datetime-local", name="deadline", id="deadline", required="true")
-        input(type="hidden", name="scriptPubKey")
+        input(type="hidden", name="address")
         button.btn.btn-primary.mb-4(type="submit") Create
 
-        //- popup to unlock the seed and generate scriptPubKey
+        //- popup to unlock the seed and generate address
 
 block append scripts
     script(src="/js/bundle/create_project.js")

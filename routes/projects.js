@@ -21,7 +21,7 @@ router.post('/create', function (req, res, next) {
     console.log(req.body);
     if (validate_project_submission(req.body)) {
         let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
-        let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.scriptPubKey, req.body.fund_goal, req.body.deadline];
+        let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.address, req.body.fund_goal, req.body.deadline];
         //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
         db.query(query_str, values)
         .then(results => { 
@@ -216,6 +216,7 @@ router.post('/:id/make_pledge', function (req, res, next) {
         transmitExactAmount(req, res);
     } else if (stage == "transmitPartial") {
         transmitPartial(req, res);
+        //then(_ => {checkPledges(req,res)})
     }
 });
 
@@ -251,11 +252,37 @@ function generateInputs(req, res) {
 
 function transmitExactAmount(req, res) {
     // todo: post tx to blockchain.info
-
-    return;
+    blockchain.sendtx(req.body.serialized_tx, function(err, response) {
+        if (err) {
+            console.log("post error", err);
+            res.status(500).json(JSON.stringify(err));
+        } else {
+            // if success, pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
+            let query_str = "select address, fund_goal from projects where project_id=?";
+            db.query(query_str, [req.params.id])
+            .then(results => {
+                let project_details = results[0];
+                if (project_details) {
+                    res.status(200).json(project_details);
+                } 
+            })
+            .catch(err => {
+                res.status(error.status || 500).json({ 
+                    status: error.status || 500,
+                    message: error.message 
+                });
+            });
+        }
+    });
 }
 
 function transmitPartial(req, res) {
+    res.status(200).json({
+        status: 200,
+        message: "submitted"
+    });
+    return;
+
     if (validate_pledge(req.body)) {
         // amount, txid, vout, signature
         console.log("pledging", req.body);

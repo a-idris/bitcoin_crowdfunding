@@ -15,6 +15,11 @@ block content
     p date joined: #{user.date_joined}
 
     //- wallet stats
+    if session.user_id == user.user_id
+        .card.w-25.mb-3.border-primary
+            .card-body.text-center
+                h4.card-title Wallet balance
+                p.card-text #{wallet.balance} BTC
 
     //- N last projects by the user
     .mb-3
@@ -49,28 +54,29 @@ block content
 
     //- only for the logged in user
     if session.user_id == user.user_id
-        h3 Pledges
-        if pledges.length == 0
-            p No pledges yet.
-        else
-            a.text-muted(href=`${user.user_id}/pledges`) View all              
+        .mb-3
+            h3 Pledges
+            if pledges.length == 0
+                p No pledges yet.
+            else
+                a.text-muted(href=`${user.user_id}/pledges`) View all              
 
-            .card-group
-                for pledge in pledges
-                    //- .col-3
-                    .card.bg-light.mb-1
-                        .card-header
-                            span.card-text Your pledge:
-                            p.card-text #{pledge.amount} BTC on #{pledge.pledge_time} 
-                        .card-body.text-center
-                            h4.card-title.mb-0 #{pledge.title}
-                            p.card-text.mt-3 #{pledge.short_description}
-                            
-                            span.card-text #{pledge.amount_pledged} of #{pledge.fund_goal} pledged
-                            .progress.progress-thin
-                                - 
-                                    progress_proportion = (pledge.amount_pledged / pledge.fund_goal) * 100
-                                    progress_str = Number((progress_proportion).toFixed(0)) + "%"
-                                .progress-bar(style=`width: ${progress_str};`) 
-                            p.card-text Deadline: #{pledge.deadline}
-                            a.btn.btn-primary.btn-sm(href=`/projects/${pledge.project_id}`) View 
+                .card-group
+                    for pledge in pledges
+                        //- .col-3
+                        .card.bg-light.mb-1
+                            .card-header
+                                span.card-text Your pledge:
+                                p.card-text #{pledge.amount} BTC on #{pledge.pledge_time} 
+                            .card-body.text-center
+                                h4.card-title.mb-0 #{pledge.title}
+                                p.card-text.mt-3 #{pledge.short_description}
+                                
+                                span.card-text #{pledge.amount_pledged} of #{pledge.fund_goal} pledged
+                                .progress.progress-thin
+                                    - 
+                                        progress_proportion = (pledge.amount_pledged / pledge.fund_goal) * 100
+                                        progress_str = Number((progress_proportion).toFixed(0)) + "%"
+                                    .progress-bar(style=`width: ${progress_str};`) 
+                                p.card-text Deadline: #{pledge.deadline}
+                                a.btn.btn-primary.btn-sm(href=`/projects/${pledge.project_id}`) View 

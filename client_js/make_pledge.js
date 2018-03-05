@@ -34,10 +34,12 @@ function createExactAmount(data) {
         type: "POST",
         url: this.url,
         data: { 
-            serialized_tx: transaction, 
+            serialized_tx: transaction.serialize(), 
             stage: "transmitExactAmount"
         },
-        success: createPartial.bind(this),
+        success: data => {
+            createPartial.call(this, transaction.toObject(), data)
+        },
         error: displayError.bind(this.this_form),
         dataType: 'json'
     });
@@ -46,14 +48,14 @@ function createExactAmount(data) {
 
 }
 
-function createPartial(data) {
-    //todo
-    console.log("createPartial");
+function createPartial(prevTransaction, outputInfo) {
+    let transaction = wallet.createPartial(prevTransaction, outputInfo);
+
 
     $.ajax({
         type: "POST",
         url: this.url,
-        data: { 
+        data: {     
             stage: "transmitPartial"
         },
         success: function(data) {
