@@ -27,7 +27,7 @@ router.post('/create', function (req, res, next) {
         .then(results => { 
             let project_id = results.insertId;
             if (project_id) {
-                return update_hd_indices(req, res).then(_ => {
+                return update_hd_indices(req, res, {external_index: Number(req.cookies.external_index) + 1}).then(_ => {
                     res.redirect(`/projects/${project_id}`);
                 });
             } else {
@@ -44,20 +44,6 @@ router.post('/create', function (req, res, next) {
         next(err);
     }
 });
-
-function update_hd_indices(req, res) {
-    let new_external_index = Number(req.cookies.external_index) + 1; // just increment
-    let query_str = "update hd_indices set external_index=? where user_id=?";
-    return db.query(query_str, [new_external_index, req.session.user_id])
-    .then(results => {
-        if (results.affectedRows == 1) {
-            // update cookies
-            res.cookie('external_index', new_external_index);
-            return Promise.resolve();
-        }
-        return Promise.reject(new Error('Update operation failed'));            
-    });
-}
 
 function validate_project_submission(submission) {
     return true;
@@ -250,30 +236,62 @@ function generateInputs(req, res) {
     });
 }
 
-function transmitExactAmount(req, res) {
-    // todo: post tx to blockchain.info
-    blockchain.sendtx(req.body.serialized_tx, function(err, response) {
-        if (err) {
-            console.log("post error", err);
-            res.status(500).json(JSON.stringify(err));
-        } else {
-            // if success, pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
-            let query_str = "select address, fund_goal from projects where project_id=?";
-            db.query(query_str, [req.params.id])
-            .then(results => {
-                let project_details = results[0];
-                if (project_details) {
-                    res.status(200).json(project_details);
-                } 
-            })
-            .catch(err => {
-                res.status(error.status || 500).json({ 
-                    status: error.status || 500,
-                    message: error.message 
-                });
-            });
+function update_hd_indices(req, res, indices_to_set) {
+    let query_str = "update hd_indices set ";
+    let attributes = Object.keys(indices_to_set);
+    for (let attr of attributes) {
+        query_str += `${attr}=?, `;
+    }
+    //remove comma
+    query_str = query_str.substring(0, query_str.length - 2);
+    query_str += " where user_id=?";
+    
+    let values = attributes.map(key => indices_to_set[key]);
+    values.push(req.session.user_id);
+    
+    return db.query(query_str, values)
+    .then(results => {
+        if (results.affectedRows == 1) {
+            // update cookies
+            for (let attr of attributes) {
+                res.cookie(attr, indices_to_set[attr]);
+            }
+            return Promise.resolve();
         }
+        return Promise.reject(new Error('Update operation failed'));            
     });
+}
+
+function transmitExactAmount(req, res) {
+    update_hd_indices(req, res, {
+        external_index: Number(req.cookies.external_index) + 1,
+        change_index: Number(req.cookies.change_index) + 1
+    }).then(_ => {
+        blockchain.sendtx(req.body.serialized_tx, function(err, response) {
+            if (err) {
+                console.log("post error", err);
+                res.status(500).json(JSON.stringify(err));
+            } else {
+                // if success, pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
+                let query_str = "select address, fund_goal from projects where project_id=?";
+                db.query(query_str, [req.params.id])
+                .then(results => {
+                    let project_details = results[0];
+                    if (project_details) {
+                        res.status(200).json(project_details);
+                    } else {
+                        return Promise.reject(new Error("retrieving project details failed"));
+                    }
+                });
+            }
+        });
+    })
+    .catch(err => {
+        res.status(err.status || 500).json({ 
+            status: err.status || 500,
+            message: err.message 
+        });
+    }); 
 }
 
 function transmitPartial(req, res) {

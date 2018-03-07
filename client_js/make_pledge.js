@@ -30,6 +30,9 @@ function createExactAmount(data) {
     let cookie = parseCookie();
 
     let transaction = wallet.createExactAmount(inputs, Number(this.form_data.amount), xpriv, Number(cookie.external_index), Number(cookie.change_index));
+    // set the appropriate private key
+    this.privateKey = keyutils.derive(xpriv, 'xpriv', `m/${cookie.external_index}`).privateKey;
+
     $.ajax({
         type: "POST",
         url: this.url,
@@ -49,8 +52,8 @@ function createExactAmount(data) {
 }
 
 function createPartial(prevTransaction, outputInfo) {
-    let transaction = wallet.createPartial(prevTransaction, outputInfo);
-
+    outputInfo.fund_goal = Number(outputInfo.fund_goal);
+    let transaction = wallet.createPartial(prevTransaction, outputInfo, this.privateKey);
 
     $.ajax({
         type: "POST",

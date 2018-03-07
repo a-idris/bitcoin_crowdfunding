@@ -3,12 +3,14 @@ const key_utils = require('./key_management');
 
 var wallet = {};
 
-wallet.chooseInputs = function(utxos, amount) {
+wallet.chooseInputs = function(utxos, amount, minFee) {
+    if (!minFee) 
+        minFee = 100000;
     // gather list of inputs to be signed and gathered into a transaction client side 
     let accumAmount = 0;
     let i = 0;
     let inputs = [];
-    while (accumAmount < amount) {
+    while (accumAmount < amount + minFee) {
         accumAmount += utxos[i].value;
         let inputObj = {
             'txid': utxos[i].tx_hash_big_endian, 
@@ -63,29 +65,46 @@ const SIGHASH_ALL_ANYONECANPAY = bitcore.crypto.Signature.SIGHASH_ALL | bitcore.
 // function txOutputToInput(txObj, index)
 // function createPartial(input, output);
 
-function createPartial(prevTransaction, outputInfo, privateKey) {
+wallet.createPartial = function(prevTransaction, outputInfo, privateKey) {
     // create the input from the transaction object. 
     let inputObj = {};
-    inputObj.prevTxId = transactionObject.hash;
+    inputObj.prevTxId = prevTransaction.hash;
     inputObj.outputIndex = 0; // will always be 0 index because of the way the tx is created
     // leave default sequence number
     // inputObj.sequenceNumber = bitcore.Transaction.Input.DEFAULT_SEQNUMBER;
     
-    inputObj.output = transactionObject.outputs[inputObj.outputIndex];
+    inputObj.output = prevTransaction.outputs[inputObj.outputIndex];
     // inputObj.script = inputObj.output.script;
+    inputObj.script = new bitcore.Script();
 
     let output = new bitcore.Transaction.Output({
-        script: new bitcore.Script(new Address(outputInfo.address)),
-        amount: outputInfo.amount
+        script: new bitcore.Script(new bitcore.Address(outputInfo.address)),
+        satoshis: outputInfo.fund_goal
     });
 
-    let input = new bitcore.Transaction.Input(inputObj);
+    let input = new bitcore.Transaction.Input.PublicKeyHash(inputObj);
     let unsigned_tx = new bitcore.Transaction()
         .addInput(input)
-        .addOutput(output);
+        .to(outputInfo.address, outputInfo.fund_goal);
+        // .addOutput(output);
+
+    let genScript = bitcore.Script.buildPublicKeyHashOut(privateKey.toAddress());
+    let pubkeyHash = bitcore.crypto.Hash.sha256ripemd160(privateKey.publicKey.toBuffer());
+    let compScript = prevTransaction.outputs[0].script;
+
+    let utxo = new bitcore.UnspentOutput({
+        "txid": prevTransaction.hash,
+        "vout": 0,
+        "address": privateKey.toAddress,
+
+    });
+
+    // let unsigned_tx = new bitcore.Transaction()
+    // .from(utxo)
+    // .to(outputInfo.address, outputInfo.fund_goal);
+    // // .addOutput(output);
 
     // get the signature for the input and apply it, with sigtype SIGHASH_ALL | SIGHASH_ANYONECANPAY
-    let pubkeyHash = bitcore.crypto.Hash.sha256ripemd160(privateKey.publicKey.toBuffer());
     let transactionSignature = input.getSignatures(unsigned_tx, privateKey, 0, SIGHASH_ALL_ANYONECANPAY, pubkeyHash)[0]; //only 1 input, length of returned array = 1
     unsigned_tx.applySignature(transactionSignature);
     
