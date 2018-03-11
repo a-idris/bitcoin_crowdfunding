@@ -5,8 +5,8 @@ const bcrypt = require('bcrypt');
 const db = require('../src/database').get_db();
 
 //constants. starting indices for a new HD wallet
-var change_index = 0;
-var external_index = 0;
+var CHANGE_INDEX = 0;
+var EXTERNAL_INDEX = 0;
 
 router.get('/', function(req, res, next) {
     res.render('register', {title: 'register'});
@@ -26,8 +26,8 @@ router.post('/', function(req, res, next) {
         req.session.user_id = user_id;
         // set cookies for xpub and the indices
         res.cookie('xpub_key', req.body.xpub_key);
-        res.cookie('change_index', change_index);
-        res.cookie('external_index', external_index);
+        res.cookie('change_index', CHANGE_INDEX);
+        res.cookie('external_index', EXTERNAL_INDEX);
         res.redirect(`/users/${user_id}`);
     })
     .catch(err => {
@@ -39,7 +39,7 @@ router.post('/', function(req, res, next) {
 function validate(registration_details) {
     // nonempty
     if (!registration_details.username || !registration_details.password || !registration_details.xpub_key)
-        return Promise.resolve(false);
+        return Promise.reject(new Error("invalid input details"));
     // user doesn't exist already
     let query_str = "select * from users where username=?";
     let validation_promise = db.query(query_str, [registration_details.username])
@@ -50,7 +50,7 @@ function validate(registration_details) {
             return registration_details;
         } 
         // todo: throw error + ajax
-        return false;
+        return Promise.reject(new Error("Username already exists"));
     });
     return validation_promise;
 }
@@ -69,7 +69,7 @@ function save_details(registration_details) {
 function init_wallet_indices(user_id) {
     let query_str = "insert into hd_indices values (NULL, ?, ?, ?)";
     // todo check affected_rows and throw error accordingly
-    return db.query(query_str, [user_id, change_index, external_index]).then(results => user_id);
+    return db.query(query_str, [user_id, CHANGE_INDEX, EXTERNAL_INDEX]).then(results => user_id);
 }
 
 
