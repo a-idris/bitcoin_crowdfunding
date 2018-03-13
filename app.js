@@ -1,3 +1,7 @@
+/** 
+ * @file Application entry point. Sets up the requires, middleware, and routes. 
+*/
+
 const express = require('express');
 const path = require('path');
 const favicon = require('serve-favicon');

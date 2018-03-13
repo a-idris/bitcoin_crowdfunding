@@ -2,3 +2,4 @@ node_modules/
 .vscode/
 db_populate.sql
 public/js/bundle/
+out/

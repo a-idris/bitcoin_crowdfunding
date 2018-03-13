@@ -1,17 +1,40 @@
+/**
+ * A database connection object. 
+ * @typedef {Object} Connection 
+*/
+
+/** 
+ * Database wrapper class.
+ * @class
+ * 
+ * @constructor
+ * 
+ * @property config The configuration details for the database 
+*/
 function Database() {
-    this.config = require('../config');
+    // set config from file
+    this.config = require('../config').db;
 }
 
+/** 
+ * Connects to the database and creates a connection pool.
+ * 
+ * @returns {Promise<undefined>} A promise that returns undefined if resolved. 
+*/
 Database.prototype.open = function() {
     var mysql = require('mysql');
     // connect using config file
     // use connection pool to improve throughput
-    this.pool = mysql.createPool(this.config.db); 
+    this.pool = mysql.createPool(this.config); 
     return Promise.resolve();
 }
 
-// returns the connection to execute the transaction statements with, or rejects if some error is encountered
-Database.prototype.begin_transaction = function() {
+/**
+ * Returns a connection to execute the transaction statements with. 
+ * 
+ * @returns {Promise.<Connection|Error>} A promise that returns a Connection if resolved, or an Error if rejected.
+*/
+ Database.prototype.begin_transaction = function() {
     return new Promise((resolve, reject) => {
         // transaction support available at connection level, so need to get connection
         this.pool.getConnection(function(err, connection) {
@@ -20,6 +43,7 @@ Database.prototype.begin_transaction = function() {
             } else {
                 connection.beginTransaction(function(err) {
                     if (err) {
+                        // if error return the connection to the pool
                         connection.resolve();
                         return reject(err);
                     }
@@ -30,6 +54,15 @@ Database.prototype.begin_transaction = function() {
     });
 }
 
+/**
+ * Execute a sql query. 
+ *
+ * @param {string} queryString A raw SQL string
+ * @param {string[]} values Parameters to the queryString
+ * @param {boolean} includeFields If set to true, function will also return field info 
+ * @param {Connection} transactionConnection If supplied, will execute query as part of transaction, rolling back if an error is encountered.
+ * @returns {Promise.<object|Error>} A promise that returns a results object if resolved, or an Error if rejected.
+*/
 Database.prototype.query = function(queryString, values, includeFields, transactionConnection) {
     return new Promise((resolve, reject) => {
         // connection type depends on if currently executing transaction.
@@ -61,11 +94,17 @@ Database.prototype.query = function(queryString, values, includeFields, transact
     }); 
 }
 
+/**
+ * Commit a transaction. 
+ *
+ * @param {Connection} connection The connection returned from [begin_transaction]{@link Database#begin_transaction}
+ * @returns {Promise.<undefined|Error>} A promise that returns null if resolved, or an Error if rejected.
+*/
 Database.prototype.commit = function(connection) {
     return new Promise((resolve, reject) => {
         connection.commit(function(err) {
             if (err) {
-                // if error encountered while commiting, rollback the transaction
+                // if error encountered while committing, rollback the transaction
                 this.rollback(connection)
                     .then(rollbackSuccess => {
                         //if rollback success, reject with original error
@@ -78,7 +117,7 @@ Database.prototype.commit = function(connection) {
                         reject(overallErr)
                     });
             } else {
-                // release the connection back to the pool
+                // on success, release the connection back to the pool and resolve
                 connection.release();
                 resolve();
             }
@@ -86,6 +125,12 @@ Database.prototype.commit = function(connection) {
     });
 }
 
+/**
+ * Roll back a transaction. 
+ *
+ * @param {Connection} connection The connection returned from [begin_transaction]{@link Database#begin_transaction}
+ * @returns {Promise.<undefined|Error>} A promise that returns undefined if rollback is successful and resolved, or an Error if rejected.
+*/
 Database.prototype.rollback = function(connection) {
     return new Promise((resolve, reject) => {
         connection.rollback(function(rollback_err) {
@@ -102,21 +147,32 @@ Database.prototype.rollback = function(connection) {
     });
 }
 
-// todo: streaming query
+/**
+ * Close all the connections in the connection pool.
+ *
+ * @returns {Promise.<undefined|Error>} A promise that returns undefined if resolved, or an Error if rejected.
+*/
 Database.prototype.close = function() {
     return new Promise((resolve, reject) => {
         this.pool.end( err => {
+            // reject/resolve depending on existence of error
             if (err) {
                 reject(err);
             } else {
-                resolve(true);
+                resolve();
             }
         });
     });
 }
 
-// singleton
+/**
+ * Database module
+ * @module src/database
+ */
+
 var instance;
+
+/** Return the singleton instance of the {@link Database} class */
 exports.get_db = function() {
     if (!instance) {
         instance = new Database();

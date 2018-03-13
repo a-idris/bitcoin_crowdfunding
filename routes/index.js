@@ -1,10 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-// controllers:
-// users
-// projects
-
 var db = require('../src/database').get_db();
 db.open().catch(error => console.log("error opening db"));
 
