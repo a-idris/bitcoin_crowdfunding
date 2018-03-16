@@ -19,6 +19,7 @@ function Database() {
 /** 
  * Connects to the database and creates a connection pool.
  * 
+ * @async
  * @returns {Promise<undefined>} A promise that returns undefined if resolved. 
 */
 Database.prototype.open = function() {
@@ -32,6 +33,7 @@ Database.prototype.open = function() {
 /**
  * Returns a connection to execute the transaction statements with. 
  * 
+ * @async
  * @returns {Promise.<Connection|Error>} A promise that returns a Connection if resolved, or an Error if rejected.
 */
  Database.prototype.begin_transaction = function() {
@@ -57,6 +59,7 @@ Database.prototype.open = function() {
 /**
  * Execute a sql query. 
  *
+ * @async
  * @param {string} queryString A raw SQL string
  * @param {string[]} values Parameters to the queryString
  * @param {boolean} includeFields If set to true, function will also return field info 
@@ -97,6 +100,7 @@ Database.prototype.query = function(queryString, values, includeFields, transact
 /**
  * Commit a transaction. 
  *
+ * @async
  * @param {Connection} connection The connection returned from [begin_transaction]{@link Database#begin_transaction}
  * @returns {Promise.<undefined|Error>} A promise that returns null if resolved, or an Error if rejected.
 */
@@ -128,6 +132,7 @@ Database.prototype.commit = function(connection) {
 /**
  * Roll back a transaction. 
  *
+ * @async
  * @param {Connection} connection The connection returned from [begin_transaction]{@link Database#begin_transaction}
  * @returns {Promise.<undefined|Error>} A promise that returns undefined if rollback is successful and resolved, or an Error if rejected.
 */
@@ -150,6 +155,7 @@ Database.prototype.rollback = function(connection) {
 /**
  * Close all the connections in the connection pool.
  *
+ * @async
  * @returns {Promise.<undefined|Error>} A promise that returns undefined if resolved, or an Error if rejected.
 */
 Database.prototype.close = function() {

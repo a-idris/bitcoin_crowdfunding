@@ -1,5 +1,6 @@
 /** 
- * @file Application entry point. Sets up the requires, middleware, and routes. 
+ * Application entry point. Sets up the requires, database connection, middleware, and routers. 
+ * @module app
 */
 
 const express = require('express');
@@ -25,16 +26,14 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session(config.session));
 
-// give templates access to session data
-app.use(function(req, res, next) {
-    res.locals.session = req.session;
-    next();
-});
+// give views access to session data
+app.use(exposeSessionToLocals);
 
 // spin up db
 var db = require('./src/database').get_db();
 db.open().catch(error => console.log("error opening db"));
 
+//set up the routers 
 var index = require('./routes/index');
 var projects = require('./routes/projects');
 var login = require('./routes/login');
@@ -53,15 +52,50 @@ app.use('/users', profile);
 app.use('/transmit', transmit);
 app.use('/wallet', wallet);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
+// if fallen through to notFoundHandler without matching a route, raises 404 error
+app.use(notFoundHandler);
+// handle errors
+app.use(errorHandler);
+
+//custom middleware
+
+/**
+ *  Convenience function to give views access to session data
+ * 
+ * @function
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ * @param {Function} next Next middleware function
+*/
+function exposeSessionToLocals(req, res, next) {
+    res.locals.session = req.session;
+    next();
+}
+
+/**
+ *  Raises a 404 error and passes to next middleware function ({@link errorHandler}). Used to raise 404's on unmatched routes.
+ * 
+ * @function
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ * @param {Function} next Next middleware function
+*/
+function notFoundHandler(req, res, next) {
     var err = new Error('Not Found');
     err.status = 404;
     next(err);
-});
+}
 
-// error handler
-app.use(function(err, req, res, next) {
+/**
+ *  Error handler which will render an error page with a status and error message.
+ * 
+ * @function
+ * @param {Object} err Error object
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ * @param {Function} next Next middleware function
+*/
+function errorHandler(err, req, res, next) {
     // set locals, only providing error in development
     res.locals.message = err.message;
     res.locals.error = req.app.get('env') === 'development' ? err : {};
@@ -69,6 +103,6 @@ app.use(function(err, req, res, next) {
     // render the error page
     res.status(err.status || 500);
     res.render('error');
-});
+}
 
 module.exports = app;

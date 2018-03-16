@@ -1,13 +1,37 @@
+/** 
+ * Login route module.
+ * @module routes/login
+ * @requires NPM:bcrypt
+*/
+
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 
+/** 
+ * Database wrapper object.
+ * @type {Database}
+*/
 const db = require('../src/database').get_db();
 
+/**
+ * Display login page.
+ *
+ * @name Get login page
+ * @route {GET} /login/
+ */
 router.get('/', function(req, res, next) {
     res.render('login', {title: 'login'});
 }); 
 
+/**
+ * Authenticates details; loads hd_indices and xpub key as cookies; sets session variables; redirects to index.
+ *
+ * @name Process login attempt
+ * @route {POST} /login/
+ * @bodyparam {string} username
+ * @bodyparam {string} password
+ */
 router.post('/', function(req, res, next) {
     //return json
     authenticate(req.body)
@@ -46,6 +70,15 @@ router.post('/', function(req, res, next) {
     });
 }); 
 
+/**
+ * Will check for the expected properties on login_details. Check that user with that username exists, and then verify the password hash matches.  
+ * 
+ * @param {object} login_details 
+ * @param {string} login_details.username
+ * @param {string} login_details.password
+ * 
+ * @returns {Promise.<object|Error>} A promise that returns a user object if resolved, or an Error if rejected.
+ */
 function authenticate(login_details) {
     // is nonempty
     if (!login_details.username || !login_details.password)
