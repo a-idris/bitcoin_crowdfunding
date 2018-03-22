@@ -8,7 +8,7 @@ const router = express.Router();
 
 /** 
  * Database wrapper object.
- * @type {Database}
+ * @type {Database} 
 */
 var db = require('../src/database').get_db();
 // db.open().catch(error => console.log("error opening db"));

@@ -62,11 +62,17 @@ Database.prototype.open = function() {
  * @async
  * @param {string} queryString A raw SQL string
  * @param {string[]} values Parameters to the queryString
- * @param {boolean} includeFields If set to true, function will also return field info 
- * @param {Connection} transactionConnection If supplied, will execute query as part of transaction, rolling back if an error is encountered.
+ * @param {object} options Pass additional options
+ * @param {boolean} options.includeFields If set to true, function will also return field info 
+ * @param {Connection} options.transactionConnection If supplied, will execute query as part of transaction, rolling back if an error is encountered.
  * @returns {Promise.<object|Error>} A promise that returns a results object if resolved, or an Error if rejected.
 */
-Database.prototype.query = function(queryString, values, includeFields, transactionConnection) {
+Database.prototype.query = function(queryString, values, options) {
+    //unpack options
+    options = options || {}
+    let includeFields = options.includeFields || false;
+    let transactionConnection = options.transactionConnection || undefined;
+
     return new Promise((resolve, reject) => {
         // connection type depends on if currently executing transaction.
         let conn = transactionConnection || this.pool;
@@ -102,7 +108,7 @@ Database.prototype.query = function(queryString, values, includeFields, transact
  *
  * @async
  * @param {Connection} connection The connection returned from [begin_transaction]{@link Database#begin_transaction}
- * @returns {Promise.<undefined|Error>} A promise that returns null if resolved, or an Error if rejected.
+ * @returns {Promise.<undefined|Error>} A promise that returns undefined if resolved, or an Error if rejected.
 */
 Database.prototype.commit = function(connection) {
     return new Promise((resolve, reject) => {
@@ -178,7 +184,11 @@ Database.prototype.close = function() {
 
 var instance;
 
-/** Return the singleton instance of the {@link Database} class */
+/** Return the singleton instance of the {@link Database} class 
+ * 
+ * @function
+ * @returns {Database} database instance
+*/
 exports.get_db = function() {
     if (!instance) {
         instance = new Database();
