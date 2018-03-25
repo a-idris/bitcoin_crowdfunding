@@ -33,7 +33,7 @@ router.get('/create', function (req, res, next) {
 });
 
 /**
- * Validate, insert to PROJECTS, update hd_indices and update cookies.
+ * Validate, insert to PROJECTS, update hd_indices because of the newly generated address and update cookies.
  *
  * @name Process project submission
  * @route {POST} /projects/create
@@ -69,9 +69,19 @@ router.post('/create', function (req, res, next) {
                 /* since a new address has been generated at the current external index (stored in the db and cookie), 
                 need to increment the external index by 1 to keep it updated. Propagate this change to database and cookies */
                 let indices_to_set = { external_index: Number(req.cookies.external_index) + 1 }
-                return update_hd_indices(req, res, indices_to_set, transactionConnection).then(success => {
-                    // redirect to the page of the newly created project
-                    res.redirect(`/projects/${project_id}`);
+                return update_hd_indices(req, res, indices_to_set, transactionConnection)
+                .then(success => {
+                    // commit the transaction and only if successful update the cookies
+                    return db.commit(transactionConnection)
+                    .then(success => {
+                        // update cookies
+                        for (let attr of Object.keys(indices_to_set)) {
+                            res.cookie(attr, indices_to_set[attr]);
+                        }
+                        
+                        // redirect to the page of the newly created project
+                        res.redirect(`/projects/${project_id}`);
+                    });
                 });
             } else {
                 return Promise.reject(new Error('Insert operation failed'));            
@@ -79,12 +89,14 @@ router.post('/create', function (req, res, next) {
         })
         .catch(error => {
             console.log(error);
-            next(error); // 500 
+            // forward to error handling middleware        
+            next(error); 
         }); 
     } else {
         // if validation failed
         let err = new Error("Invalid form data");
         err.status = 400;
+        // forward to error handling middleware        
         next(err);
     }
 });
@@ -109,14 +121,9 @@ function validate_create_project(submission) {
     // check that all the expected properties exist
     if (!expected_properties.every(prop => submission_properties.indexOf(prop) >= 0))
         return false;
-    
-    function string_isvalid(candidate) {
-        // check that trimmed string is nonempty
-        return typeof candidate === 'string' && candidate.trim().length;
-    }
 
     // check that strings are valid
-    if (!submission_properties.all(string_isvalid)) {
+    if (!submission_properties.every(key => validate_text(submission[key]))) {
         return false;
     }  
 
@@ -128,35 +135,45 @@ function validate_create_project(submission) {
 
     // check that deadline is valid Date
     let parsed_date = new Date(submission.deadline);
-    if (parsed_date === 'Invalid Date' || isNan(parsed_date))
+    if (parsed_date === 'Invalid Date' || isNaN(parsed_date))
         return false;
 
     // all checks passed
     return true;
 }
 
+/**
+ * Display the project page, including the project information, progress, updates and comments. Will also contain methods to make pledge from there. 
+ *
+ * @name Get Project Page
+ * @route {GET} /projects/:id
+ * @routeparam {string} :id the unique project id
+ */
 router.get('/:id', function (req, res, next) {
     let project_id = req.params.id;
-    let project, project_updates, project_comments; // objects to hold query results
+    // objects to hold query results
+    let project, project_updates, project_comments;
+    // join on user_id with users table to include the information of the project creator   
     let query_str = "select * from projects natural join users where project_id=?";
     db.query(query_str, [project_id])
     .then(project_results => {
-        if (!project_results[0]) {
+        project = project_results[0];
+        if (!project) {
             let err = new Error('Project not found');
             err.status = 404;
             return Promise.reject(err);
         }
-        project = project_results[0];
+        // fetch the project updates made by the creator
         query_str = "select * from project_updates where project_id=?";
         return db.query(query_str, [project_id]);         
     })
     .then(updates_results => {
         project_updates = updates_results;
+        // fetch the comments on the project. join on users table to hook into commenter's info
         query_str = "select * from project_comments natural join users where project_id=?";
         return db.query(query_str, [project_id]);
     })
-    .then(comment_results => {
-        project_comments = comment_results;
+    .then(project_comments => {
         res.render('project', { 
             title: 'project', 
             project: project, 
@@ -166,11 +183,17 @@ router.get('/:id', function (req, res, next) {
     })
     .catch(error => {
         console.log(error);
-        next(error); // 500 
+        next(error); 
     });
 });
 
-
+/**
+ * Delete the project page. First, authenticates the user as project creator through session user_id. 
+ *
+ * @name Delete Project Page
+ * @route {GET} /projects/:id/delete
+ * @routeparam {string} :id the unique project id
+ */
 router.get('/:id/delete', function (req, res, next) {
     let project_id = req.params.id;    
     assertAuthor(project_id, req.session.user_id)
@@ -188,12 +211,19 @@ router.get('/:id/delete', function (req, res, next) {
     })
     .catch(error => {
         console.log(error);
-        next(error); // 500 
+        next(error); 
     });
 });
 
-// verify that creator of project_id is candidate_user_id
+/** 
+ * Checks if creator of the project with project_id is candidate_user_id 
+ * 
+ * @param {number} project_id The id of the project to be deleted
+ * @param {number} candidate_user_id The user_id to check if it is the author of the project
+ * @returns {Promise.<undefined|Error>} promise that resolves / rejects based on match / mismatch of the candid_user_id with the actual creator's user_d.
+*/
 function assertAuthor(project_id, candidate_user_id) {
+    // retrieve the user_id of the project creator
     let query_str = `select user_id from projects where project_id=?`;
     return db.query(query_str, [project_id])
     .then(results => {
@@ -204,7 +234,7 @@ function assertAuthor(project_id, candidate_user_id) {
             err.status = 404;
             return Promise.reject(err);
         } else if (user_id !== candidate_user_id) {
-            // if session's user is not author 
+            // if candidate user_id is not author 
             let err = new Error('Permission denied');
             err.status = 403;
             return Promise.reject(err);
@@ -214,36 +244,56 @@ function assertAuthor(project_id, candidate_user_id) {
     });
 }
 
-
+/**
+ * Validate form, insert the comment into the database, refresh the page if successful.  
+ *
+ * @name Process comment submission
+ * @route {POST} /projects/:id/add_comment
+ * @routeparam {string} :id the unique project id
+ * @bodyparam {string} comment The comment text
+*/
 router.post('/:id/add_comment', function (req, res, next) {
     let project_id = req.params.id;
-    Promise.resolve().then(_ => {
-        if (validate_text(req.body.comment)) {
-            let query_str = "insert into project_comments values (NULL, ?, ?, ?, now())";
-            return db.query(query_str, [project_id, req.session.user_id, req.body.comment]);
-        } else {
-            let err = new Error("Invalid form data");
-            err.status = 400;
-            return Promise.reject(err);
-        }
-    })
+
+    if (!validate_text(req.body.comment)) {
+        let err = new Error("Invalid form data");
+        err.status = 400;
+        // forward to error handling middleware
+        next(err);
+    }
+
+    let query_str = "insert into project_comments values (NULL, ?, ?, ?, now())";
+    return db.query(query_str, [project_id, req.session.user_id, req.body.comment])
     .then(results => {
+        // if successful, will return the comment_id as insertId
         if (results.insertId) {
+            // reload
             res.redirect(`/projects/${project_id}`);
         } else {
-            return Promise.reject(new Error('Insert operation failed'));            
+            return Promise.reject(new Error('Comment insert operation failed'));            
         }
     })
     .catch(error => {
         console.log(error);
+        // forward to error handling middleware
         next(error); // 500 
     });
 });
 
+/**
+ * Validate form, assert that only author can add updates, insert the update into the database, 
+ * refresh the page if successful.  
+ *
+ * @name Process update submission
+ * @route {POST} /projects/:id/add_update
+ * @routeparam {string} :id the unique project id
+ * @bodyparam {string} update The comment text
+*/
 router.post('/:id/add_update', function (req, res, next) {
     let project_id = req.params.id;
+    // assert that session.user_id matches the project creator's user_id
     assertAuthor(project_id, req.session.user_id)
-    .then(_ => {
+    .then(success => {
         if (validate_text(req.body.update)) {
             let query_str = "insert into project_updates values (NULL, ?, ?, now())";
             return db.query(query_str, [project_id, req.body.update]);
@@ -254,7 +304,9 @@ router.post('/:id/add_update', function (req, res, next) {
         }
     })
     .then(results => {
+        // if successful, will return the update_id as insertId
         if (results.insertId) {
+            // reload to show changes
             res.redirect(`/projects/${project_id}`);
         } else {
             return Promise.reject(new Error('Insert operation failed'));            
@@ -262,12 +314,18 @@ router.post('/:id/add_update', function (req, res, next) {
     })
     .catch(error => {
         console.log(error);
-        next(error); // 500 
+        next(error); 
     });
 });
 
-function validate_text(comment) {
-    return true;
+/**
+ * Function to validate text string. Used for user input.
+ * @param {string} text
+ * @returns {boolean} 
+ */
+function validate_text(text) {
+    // check that trimmed string is nonempty
+    return typeof text == 'string' && text.trim().length;
 }
 
 router.post('/:id/make_pledge', function (req, res, next) {
@@ -324,7 +382,7 @@ function generateInputs(req, res) {
 
 /**
  * Updates the hd wallet indices (external index or change index) in the database
- * and cookies based on the provided values in the indices_to_set object.
+ * based on the provided values in the indices_to_set object.
  * 
  * @param {Object} req Express request object
  * @param {Object} res Express response object
@@ -360,20 +418,9 @@ function update_hd_indices(req, res, indices_to_set, transactionConnection) {
     return db.query(query_str, values, {transactionConnection: transactionConnection})
     .then(results => {
         if (results.affectedRows == 1) {
-            return db.commit(transactionConnection)
-            .then(success => {
-                // update cookies
-                for (let attr of attributes) {
-                    res.cookie(attr, indices_to_set[attr]);
-                }
-                return Promise.resolve();
-            });
+            return Promise.resolve();
         } else {
-            // if update failed, rollback the transaction
-            return db.rollback(transactionConnection)
-            .then(successful_rollback => {
-                return Promise.reject(new Error('Update operation failed'));            
-            }); 
+            return Promise.reject(new Error('Update operation failed'));            
         }
     });
 }
@@ -383,6 +430,9 @@ function transmitExactAmount(req, res) {
         external_index: Number(req.cookies.external_index) + 1,
         change_index: Number(req.cookies.change_index) + 1
     }).then(_ => {
+
+        // TODO: if successful, update cookies. OR AT THE END?
+
         blockchain.sendtx(req.body.serialized_tx, function(err, response) {
             if (err) {
                 console.log("post error", err);
