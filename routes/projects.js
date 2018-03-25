@@ -1,33 +1,76 @@
-var express = require('express');
-var router = express.Router();
+/** 
+ * Projects router module.
+ * @module routes/projects
+*/
 
-var blockchain = require('../src/api');
-var wallet = require('../src/wallet');
-var db = require('../src/database').get_db();
+const express = require('express');
+const router = express.Router();
 
-//project creation routes
+/** 
+ * Database wrapper object.
+ * @const {Database}
+*/
+const db = require('../src/database').get_db();
+/** Blockchain querying API */
+const blockchain = require('../src/api');
+/** Wallet util functions */
+const wallet = require('../src/wallet');
+
+
+/**
+ * Display form to create a project.
+ *
+ * @name Get Project Creation Page
+ * @route {GET} /projects/create
+ */
 router.get('/create', function (req, res, next) {
     if (!req.session.user_id) {
+        // need to be logged in to create a project
         res.redirect('/login');
     } else {
         res.render('create_project', {title: 'create project'});        
     }
 });
 
+/**
+ * Validate, insert to PROJECTS, update hd_indices and update cookies.
+ *
+ * @name Process project submission
+ * @route {POST} /projects/create
+ * @bodyparam {string} title Title of the project
+ * @bodyparam {string} short_description 
+ * @bodyparam {string} description
+ * @bodyparam {string} address The bitcoin address to which funds should be pledged
+ * @bodyparam {string} fund_goal The fund goal amount, in bitcoin
+ * @bodyparam {string} deadline The deadline by which this should be met. Date formatted string.
+*/
 router.post('/create', function (req, res, next) {
     if (!req.session.user_id) {
+        // need to be logged in to create project
         res.redirect('/login');
     } 
     console.log(req.body);
-    if (validate_project_submission(req.body)) {
-        let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
-        let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.address, req.body.fund_goal, req.body.deadline];
-        //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
-        db.query(query_str, values)
+    if (validate_create_project(req.body)) {
+        // start transaction to insert details into projects table and update hd wallet indices
+        let transactionConnection;
+        db.begin_transaction()
+        .then(connection => {
+            // save for easier access
+            transactionConnection = connection;
+            // the initial amount_pledged is set to 0 in the query 
+            let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
+            let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.address, req.body.fund_goal, req.body.deadline];
+            return db.query(query_str, values, {transactionConnection: transactionConnection});
+        })
         .then(results => { 
+            //returns id of inserted row. will throw error if hasn't been inserted and trying to access insertId
             let project_id = results.insertId;
             if (project_id) {
-                return update_hd_indices(req, res, {external_index: Number(req.cookies.external_index) + 1}).then(_ => {
+                /* since a new address has been generated at the current external index (stored in the db and cookie), 
+                need to increment the external index by 1 to keep it updated. Propagate this change to database and cookies */
+                let indices_to_set = { external_index: Number(req.cookies.external_index) + 1 }
+                return update_hd_indices(req, res, indices_to_set, transactionConnection).then(success => {
+                    // redirect to the page of the newly created project
                     res.redirect(`/projects/${project_id}`);
                 });
             } else {
@@ -39,13 +82,56 @@ router.post('/create', function (req, res, next) {
             next(error); // 500 
         }); 
     } else {
+        // if validation failed
         let err = new Error("Invalid form data");
         err.status = 400;
         next(err);
     }
 });
 
-function validate_project_submission(submission) {
+/**
+ * Check that expected properties are there, are nonempty, fund_goal is valid positive number, deadline is valid formatted date.
+ * 
+ * @param {object} submission 
+ * @param {string} submission.title Title of the project
+ * @param {string} submission.short_description 
+ * @param {string} submission.description
+ * @param {string} submission.address The bitcoin address to which funds should be pledged
+ * @param {string} submission.fund_goal The fund goal amount, in bitcoin
+ * @param {string} submission.deadline The deadline by which this should be met. Date formatted string.
+ * 
+ * @returns {boolean} 
+ */
+function validate_create_project(submission) {
+    let expected_properties = ['title', 'short_description', 'description', 'address', 'fund_goal', 'deadline'];
+    let submission_properties = Object.keys(submission);
+
+    // check that all the expected properties exist
+    if (!expected_properties.every(prop => submission_properties.indexOf(prop) >= 0))
+        return false;
+    
+    function string_isvalid(candidate) {
+        // check that trimmed string is nonempty
+        return typeof candidate === 'string' && candidate.trim().length;
+    }
+
+    // check that strings are valid
+    if (!submission_properties.all(string_isvalid)) {
+        return false;
+    }  
+
+    // convert fund_goal to number
+    submission.fund_goal = Number(submission.fund_goal);
+    // must be valid number greater than 0
+    if (isNaN(submission.fund_goal) || submission.fund_goal <= 0)
+        return false;
+
+    // check that deadline is valid Date
+    let parsed_date = new Date(submission.deadline);
+    if (parsed_date === 'Invalid Date' || isNan(parsed_date))
+        return false;
+
+    // all checks passed
     return true;
 }
 
@@ -236,29 +322,59 @@ function generateInputs(req, res) {
     });
 }
 
-function update_hd_indices(req, res, indices_to_set) {
+/**
+ * Updates the hd wallet indices (external index or change index) in the database
+ * and cookies based on the provided values in the indices_to_set object.
+ * 
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ * @param {Object} indices_to_set 
+ * @param {number} [indices_to_set.external_index] The new external index  
+ * @param {number} [indices_to_set.change_index] The new change index
+ * @param {Connection} transactionConnection To be passed when executing a transaction.
+ *  
+ * @returns {Promise.<undefined|Error>} promise that resolves to undefined if update is successful or rejects with any encountered Error
+ */
+function update_hd_indices(req, res, indices_to_set, transactionConnection) {
     let query_str = "update hd_indices set ";
     let attributes = Object.keys(indices_to_set);
+    
+    if (!attributes.length)
+        return Promise.reject(new Error('Must provide indices options to set'));
+    
+    let values = attributes.map(key => indices_to_set[key]);
+    // indices must be in range 0 - 2^32 by nature of HD wallets
+    if (!values.every(val => val >= 0 && val < Math.pow(2, 32)))
+        return Promise.reject(new Error('Invalid indices provided'));
+
     for (let attr of attributes) {
         query_str += `${attr}=?, `;
     }
-    //remove comma
+    //remove trailing comma
     query_str = query_str.substring(0, query_str.length - 2);
-    query_str += " where user_id=?";
     
-    let values = attributes.map(key => indices_to_set[key]);
+    // update for the logged in user by session.user_id
+    query_str += " where user_id=?";
     values.push(req.session.user_id);
     
-    return db.query(query_str, values)
+    return db.query(query_str, values, {transactionConnection: transactionConnection})
     .then(results => {
         if (results.affectedRows == 1) {
-            // update cookies
-            for (let attr of attributes) {
-                res.cookie(attr, indices_to_set[attr]);
-            }
-            return Promise.resolve();
+            return db.commit(transactionConnection)
+            .then(success => {
+                // update cookies
+                for (let attr of attributes) {
+                    res.cookie(attr, indices_to_set[attr]);
+                }
+                return Promise.resolve();
+            });
+        } else {
+            // if update failed, rollback the transaction
+            return db.rollback(transactionConnection)
+            .then(successful_rollback => {
+                return Promise.reject(new Error('Update operation failed'));            
+            }); 
         }
-        return Promise.reject(new Error('Update operation failed'));            
     });
 }
 

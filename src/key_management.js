@@ -1,3 +1,7 @@
+/** 
+ * @module src/key_management
+*/
+
 const bitcore = require('bitcore-lib');
 const Mnemonic = require('bitcore-mnemonic');
 

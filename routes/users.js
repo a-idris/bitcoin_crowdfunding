@@ -1,10 +1,27 @@
+/** 
+ * Users router module.
+ * @module routes/users
+*/
+
 const express = require('express');
 const router = express.Router();
-
+/** 
+ * Database wrapper object.
+ * @const
+ * @type {Database}
+*/
 const db = require('../src/database').get_db();
+/** 
+ * Blockchain querying API
+*/
 const blockchain = require('../src/api');
 
-// list of users
+/**
+ * Display a list of the registered users.
+ *
+ * @name List of Users
+ * @route {GET} /users/
+ */
 router.get('/', function(req, res, next) {
     let query_str = "select * from users";
     db.query(query_str)
@@ -17,16 +34,24 @@ router.get('/', function(req, res, next) {
     });
 });
 
-// specific users
+/**
+ * Display the appropriate user's profile, replete with their info, list of their created projects,
+ * and if it is the user's own profile show their pledges, wallet balance. The lists are limited to n entries,
+ * with links to the /users/projects and /users/pledges routes.
+ *
+ * @name User Profile
+ * @route {GET} /users/:id
+ * @routeparam {string} :id the unique user id
+ */
 router.get('/:id', function(req, res, next) {
-    let user_id = req.params.id;
+    let user_id = Number(req.params.id);
     let user, user_projects, user_pledges;
     let query_str = "select * from users where user_id=?";
     db.query(query_str, [user_id])
     .then(user_results => {
         user = user_results[0];
         if (user) {
-            // get 5 latest projects
+            // get 4 latest projects created by the user
             query_str = "select * from projects where user_id=? order by date_added desc limit 4"
             return db.query(query_str, [user_id]);
         } else {
@@ -38,7 +63,8 @@ router.get('/:id', function(req, res, next) {
     .then(project_results => {
         user_projects = project_results;
         // only display the personal pledges to the logged in user
-        if (req.session && req.session.user_id == user_id) {
+        if (req.session && req.session.user_id === user_id) {
+            // get the projects' information for which there are pledges by the user (including information on the proejct creators)
             query_str = "select * \
                         from pledges join projects on pledges.project_id = projects.project_id \
                         join users on projects.user_id = users.user_id \
@@ -46,29 +72,39 @@ router.get('/:id', function(req, res, next) {
                         limit 4";
             return db.query(query_str, [user_id]);
         } else {
+            // just resolve to null 
             return Promise.resolve(null);
         }
     })
     .then(pledge_results => {
         user_pledges = pledge_results;
 
-        blockchain.getbalance(req.cookies.xpub_key, function(err, balance) {
-            if (err) {
-                return Promise.reject(err);
-            } else {
-                wallet = {
-                    balance: balance
-                };
-
-                res.render('profile', { 
-                    title: 'profile',
-                    user: user,
-                    projects: user_projects,
-                    pledges: user_pledges,
-                    wallet: wallet
-                });    
-            }
-        });
+        if (req.session && req.session.user_id === user_id) {
+            // query the wallet balance info for the user if viewing own profile
+            blockchain.getBalance(req.cookies.xpub_key, function(err, balance) {
+                if (err) {
+                    return Promise.reject(err);
+                } else {
+                    wallet = {
+                        balance: balance
+                    };
+    
+                    res.render('profile', { 
+                        title: 'profile',
+                        user: user,
+                        projects: user_projects,
+                        pledges: user_pledges,
+                        wallet: wallet
+                    });    
+                }
+            });
+        } else {
+            res.render('profile', { 
+                title: 'profile',
+                user: user,
+                projects: user_projects,
+            });    
+        }
     })
     .catch(error => {
         console.log(error);
@@ -76,7 +112,13 @@ router.get('/:id', function(req, res, next) {
     });
 });
 
-// get all the projects submitted by a user
+/**
+ *  Display all the projects submitted by a user. 
+ *
+ * @name User Projects
+ * @route {GET} /users/:id/projects
+ * @routeparam {string} :id the unique user_id of the user whose projects to display 
+ */
 router.get('/:id/projects', function(req, res, next) {
     let user_id = req.params.id;
     let user, user_projects;
@@ -105,23 +147,28 @@ router.get('/:id/projects', function(req, res, next) {
     });
 });
 
-// get all the projects submitted by a user
+/**
+ * Display all the pledges made by the user. Specifically, display the information about the projects to 
+ * which the pledges were made. 
+ * 
+ * @name User Pledges
+ * @route {GET} /users/:id/pledges
+ * @routeparam {string} :id the unique user id of the user whose pledges to display 
+ */
 router.get('/:id/pledges', function(req, res, next) {
     let user_id = req.params.id;
 
-    // only user can access own pledges
+    // only the user can access own pledges 
     if (req.session.user_id != user_id) {
-        res.redirect('/')
+        res.redirect('/');
     }
 
-    // let user_pledges;
     let query_str = "select * \
                     from pledges join projects on pledges.project_id = projects.project_id \
                     join users on projects.user_id = users.user_id \
                     where pledges.user_id=?";
     db.query(query_str, [user_id])
-    .then(pledge_results => {
-        let user_pledges = pledge_results;
+    .then(user_pledges => {
         res.render('user_pledges', { 
             title: 'pledges',
             pledges: user_pledges
@@ -134,8 +181,8 @@ router.get('/:id/pledges', function(req, res, next) {
 });
 
 
-router.get('/:id/settings', function(req, res, next) {
-    // validate session id
-});
+// router.get('/:id/settings', function(req, res, next) {
+//     // validate session id
+// });
 
 module.exports = router;

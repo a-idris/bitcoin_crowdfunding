@@ -70,6 +70,7 @@ Database.prototype.open = function() {
 Database.prototype.query = function(queryString, values, options) {
     //unpack options
     options = options || {}
+    //set defaults
     let includeFields = options.includeFields || false;
     let transactionConnection = options.transactionConnection || undefined;
 

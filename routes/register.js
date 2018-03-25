@@ -1,6 +1,7 @@
 /** 
  * Registration route module.
  * @module routes/register
+ * @see client_js/register
  * @requires NPM:bcrypt
 */
 
