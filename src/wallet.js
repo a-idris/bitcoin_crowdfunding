@@ -1,8 +1,22 @@
+/** 
+ * Module handling wallet logic
+ * @module
+*/
+
 const bitcore = require('bitcore-lib');
 const key_utils = require('./key_management');
 
 var wallet = {};
 
+/**
+ * send raw transaction to be transmitted to the Bitcoin network. 
+ * 
+ * @member
+ * @function chooseInputs
+ * @param {object[]} utxos 
+ * @param {string} rawtx 
+ * @param {string} rawtx 
+ */
 wallet.chooseInputs = function(utxos, amount, minFee) {
     if (!minFee) 
         minFee = 100000;

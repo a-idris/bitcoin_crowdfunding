@@ -1,31 +1,49 @@
+/** 
+ * Client side code for pledge logic of /projects/:id page. Bundled to /public/js/bundle/make_pledge.js
+ * @module client_js/make_pledge
+ * @requires module:src/key_management
+ * @requires module:src/wallet
+ * */
+
 const wallet = require('../src/wallet');
 const keyutils = require('../src/key_management');
 
+/**
+ * Registers the pledge form submit event listener that will start the interaction. 
+ * 
+ * @callback onReadyCallback
+ */
 $(document).ready(function() {
     $('form#make_pledge').on('submit', function(event) {
         event.preventDefault();
         
+        // use an object to keep track of context
         let context = {};
         context.this_form = this;
         context.form_data = {
             amount: $(context.this_form).find('input[name=amount]').val(),
             mnemonic: $(context.this_form).find('input[name=mnemonic]').val()
         };
-        context.url = $(context.this_form).attr('action'); // use url from form action
+        context.url = $(context.this_form).attr('action'); // use url from form action attribute
 
         $.ajax({
             type: "POST",
             url: context.url, 
             data: context.form_data, 
-            success: createExactAmount.bind(context), 
-            error: displayError.bind(context.this_form), // pass form context
+            success: createExactAmount.bind(context), // bind context object to be used as 'this' 
+            error: displayError.bind(context.this_form), // bind form context
             dataType: 'json'
         });
     });
 });
 
+/**
+ * 
+ * @param {object} data 
+ */
 function createExactAmount(data) {
     let inputs = data;
+    // convert the mnemonic to an xpriv key. this will be used for signing.
     let xpriv = keyutils.generateXpriv(this.form_data.mnemonic);
     let cookie = parseCookie();
 
@@ -79,15 +97,6 @@ function displayError(jqXhr) {
     } else {
         existing_messages.first().text(`Error ${data.status}: ${data.message}`);
     }
-}
-
-function parseCookie() {
-    let cookieObj = {};
-    document.cookie.split(";").map(pair => {
-        pair = pair.split("=");
-        cookieObj[pair[0].trim()] = pair[1];
-    });
-    return cookieObj;
 }
 
 // params: scriptPubKey, seed, amount 

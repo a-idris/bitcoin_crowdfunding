@@ -38,7 +38,8 @@ block content
                         .input-group-append
                             span.input-group-text BTC
                 .form-group 
-                    label(for="amount") Mnemonic Passphrase
+                    label(for="mnemonic") Mnemonic Passphrase
+                    //- TODO: delete value='session.mnemonic'
                     input.form-control(type="text", name="mnemonic", id="mnemonic", required="true", value=`${session.mnemonic}`) 
                 //- hidden fields to set  
                 button.btn.btn-primary.btn-sm(type="submit") Submit

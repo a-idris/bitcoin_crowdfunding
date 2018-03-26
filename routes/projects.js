@@ -288,7 +288,7 @@ router.post('/:id/add_comment', function (req, res, next) {
  * @route {POST} /projects/:id/add_update
  * @routeparam {string} :id the unique project id
  * @bodyparam {string} update The comment text
-*/
+ */
 router.post('/:id/add_update', function (req, res, next) {
     let project_id = req.params.id;
     // assert that session.user_id matches the project creator's user_id
@@ -328,8 +328,26 @@ function validate_text(text) {
     return typeof text == 'string' && text.trim().length;
 }
 
+/**
+ * Three stages for server side:
+ * generate the inputs, transmit the transaction creating the exact amount output, process the partial 
+ * transaction. Store the partial transaction in database. If the fund_goal is met with this pledge contribution,
+ * craft the overall transaction and transmit it to the Bitcoin network. 
+ * 
+ * Validate form, process the pledge. Multiple client server interactions are needed, since the transaction
+ * crafting is done on the client side while other parts need to be server side.
+ * The initial stage is handled by {@link generateInputs}, where once a user wants to make a pledge 
+ * the server side checks their wallet balance funds for sufficient funds to cover the desired amount. 
+ * The assurance contract protocol necessitates that the partial transaction have as input an output with
+ * the exact amount (since can't use change output address, because the outputs for all the partial pledge 
+ * transactions to a project must remain constant). So once the client receives
+ *
+ * @name Process pledge
+ * @route {POST} /projects/:id/make_pledge
+ * @routeparam {string} :id the unique project id
+ * @bodyparam {string} amount The comment text
+ */
 router.post('/:id/make_pledge', function (req, res, next) {
-    // TODO: make it a transaction
 
     if (!req.session.user_id) {
         res.status(403).json({
@@ -338,9 +356,13 @@ router.post('/:id/make_pledge', function (req, res, next) {
         });
     } 
 
+    // need multiple client server interactions for this route, so use a body parameter to keep track
     let stage = req.body.stage;
     if (!stage) {
-    // if (!req.body.hasOwnProperty("stage")) {
+        /* the initial stage. check that the user has sufficient funds for the pledge amount, and if so
+         return a list of UTXOs. These will be the inputs for the transaction to create an output that
+         has exactly the correct amount 
+         */ 
         generateInputs(req, res);
     } else if (stage == "transmitExactAmount") {
         transmitExactAmount(req, res);
@@ -350,6 +372,14 @@ router.post('/:id/make_pledge', function (req, res, next) {
     }
 });
 
+/**
+ * Check balance of user and if everything is valid return the JSON encoded list of the 
+ * Responses sent as JSON for the client side to handle.  
+ * 
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ * @bodyparam {number} amount The req.body.amount property used to check whether the wallet has sufficient funds
+ */
 function generateInputs(req, res) {
     if (!validate_pledge(req.body)) {
         res.status(400).json({ 
@@ -358,7 +388,9 @@ function generateInputs(req, res) {
         });
     }
     
-    blockchain.getbalance(req.cookies.xpub_key, function(err, balance) {
+    // query the balance of the extended public key which is stored in the cookie
+    blockchain.getBalance(req.cookies.xpub_key, function(err, balance) {
+        // send responses as json for the client to handle
         if (err) {
             res.status(500).json({
                 status: 500,
@@ -367,14 +399,22 @@ function generateInputs(req, res) {
         } else if (req.body.amount > balance) {
             res.status(400).json({
                 status: 400,
-                message: "Insufficient funds"
+                message: `Insufficient funds. Balance on wallet is ${balance}`
             });
         } else {
-            // craft transaction to have output with the exact amount
-            blockchain.getunspent(req.cookies.xpub_key, function(err, utxos) {
-                let inputs = wallet.chooseInputs(utxos, req.body.amount);
-                // return the inputs to be created into a transaction
-                res.json(inputs);
+            // get all the UTXOs from addresses derived from the xpub key 
+            blockchain.getUnspent(req.cookies.xpub_key, function(err, utxos) {
+                if (err) {
+                    res.status(500).json({
+                        status: 500,
+                        message: err.message
+                    });
+                } else {
+                    // choose a subset of these UTXOs that cover the amount needed  
+                    let inputs = wallet.chooseInputs(utxos, req.body.amount);
+                    // return the inputs to be created into a transaction
+                    res.json(inputs);
+                }
             });
         }
     });
@@ -425,6 +465,12 @@ function update_hd_indices(req, res, indices_to_set, transactionConnection) {
     });
 }
 
+/**
+ * craft transaction to have output with the exact amount
+ * 
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ */
 function transmitExactAmount(req, res) {
     update_hd_indices(req, res, {
         external_index: Number(req.cookies.external_index) + 1,
@@ -460,6 +506,11 @@ function transmitExactAmount(req, res) {
     }); 
 }
 
+/**
+ * 
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ */
 function transmitPartial(req, res) {
     res.status(200).json({
         status: 200,
@@ -536,7 +587,7 @@ function transmitPartial(req, res) {
     }
 }
 
-function validate_pledge(pledge) {
+function validate_pledge(pledge, stage) {
     // amount, txid, vout, signature
     //convert from strings to int
     pledge.amount = Number(pledge.amount);
