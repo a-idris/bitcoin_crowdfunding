@@ -81,22 +81,19 @@ router.get('/:id', function(req, res, next) {
 
         if (req.session && req.session.user_id === user_id) {
             // query the wallet balance info for the user if viewing own profile
-            blockchain.getBalance(req.cookies.xpub_key, function(err, balance) {
-                if (err) {
-                    return Promise.reject(err);
-                } else {
-                    wallet = {
-                        balance: balance
-                    };
-    
-                    res.render('profile', { 
-                        title: 'profile',
-                        user: user,
-                        projects: user_projects,
-                        pledges: user_pledges,
-                        wallet: wallet
-                    });    
-                }
+            blockchain.getBalance(req.cookies.xpub_key)
+            .then(balance => {
+                wallet = {
+                    balance: balance
+                };
+
+                res.render('profile', { 
+                    title: 'profile',
+                    user: user,
+                    projects: user_projects,
+                    pledges: user_pledges,
+                    wallet: wallet
+                });    
             });
         } else {
             res.render('profile', { 

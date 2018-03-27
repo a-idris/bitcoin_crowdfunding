@@ -389,36 +389,36 @@ function generateInputs(req, res) {
     }
     
     // query the balance of the extended public key which is stored in the cookie
-    blockchain.getBalance(req.cookies.xpub_key, function(err, balance) {
+    blockchain.getBalance(req.cookies.xpub_key) //.then(success, failure)
+    .then(balance => {
         // send responses as json for the client to handle
-        if (err) {
-            res.status(500).json({
-                status: 500,
-                message: err.message
-            });
-        } else if (req.body.amount > balance) {
+        if (req.body.amount > balance) {
+            // must have funds greater than the pledge amount
             res.status(400).json({
                 status: 400,
                 message: `Insufficient funds. Balance on wallet is ${balance}`
             });
         } else {
             // get all the UTXOs from addresses derived from the xpub key 
-            blockchain.getUnspent(req.cookies.xpub_key, function(err, utxos) {
-                if (err) {
-                    res.status(500).json({
-                        status: 500,
-                        message: err.message
-                    });
-                } else {
-                    // choose a subset of these UTXOs that cover the amount needed  
-                    let inputs = wallet.chooseInputs(utxos, req.body.amount);
-                    // return the inputs to be created into a transaction
-                    res.json(inputs);
-                }
-            });
+            return blockchain.getUnspent(req.cookies.xpub_key);
         }
-    });
+    }, err => send_json_error(res, err))
+    .then(utxos => {
+        // choose a subset of these UTXOs that cover the amount needed  
+        let inputs = wallet.chooseInputs(utxos, req.body.amount);
+        // return the inputs to be created into a transaction
+        res.json(inputs);
+    }, err => send_json_error(res, err));
 }
+
+
+function send_json_error(res, err) {
+    let errStatus = err.status || 500;
+    res.status(errStatus).json({
+        status: errStatus,
+        message: err.message
+    });
+} 
 
 /**
  * Updates the hd wallet indices (external index or change index) in the database
@@ -466,44 +466,39 @@ function update_hd_indices(req, res, indices_to_set, transactionConnection) {
 }
 
 /**
- * craft transaction to have output with the exact amount
+ * Transmit the transaction creating the exact amount, update hd_indices
  * 
  * @param {Object} req Express request object
  * @param {Object} res Express response object
  */
 function transmitExactAmount(req, res) {
-    update_hd_indices(req, res, {
+    // the transaction generated will have two outputs, with one external address and one change address. thus wil need to increment accordingly
+    let indices_to_set = {
         external_index: Number(req.cookies.external_index) + 1,
         change_index: Number(req.cookies.change_index) + 1
-    }).then(_ => {
+    }
 
-        // TODO: if successful, update cookies. OR AT THE END?
+    blockchain.sendTx(req.body.serialized_tx)
+    .then(response => update_hd_indices(req, res, indices_to_set))
+    .then(_ => {
+        // if successful, update cookies. if failes, cookies aren't updated. keeps db indices and cookie indices in sync
+        for (let attr of Object.keys(indices_to_set)) {
+            res.cookie(attr, indices_to_set[attr]);
+        }
 
-        blockchain.sendtx(req.body.serialized_tx, function(err, response) {
-            if (err) {
-                console.log("post error", err);
-                res.status(500).json(JSON.stringify(err));
+        // pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
+        let query_str = "select address, fund_goal from projects where project_id=?";
+        db.query(query_str, [req.params.id])
+        .then(results => {
+            let project_details = results[0];
+            if (project_details) {
+                res.status(200).json(project_details);
             } else {
-                // if success, pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
-                let query_str = "select address, fund_goal from projects where project_id=?";
-                db.query(query_str, [req.params.id])
-                .then(results => {
-                    let project_details = results[0];
-                    if (project_details) {
-                        res.status(200).json(project_details);
-                    } else {
-                        return Promise.reject(new Error("retrieving project details failed"));
-                    }
-                });
+                return Promise.reject(new Error("retrieving project details failed"));
             }
         });
     })
-    .catch(err => {
-        res.status(err.status || 500).json({ 
-            status: err.status || 500,
-            message: err.message 
-        });
-    }); 
+    .catch(err => send_json_error(res, err)); 
 }
 
 /**
