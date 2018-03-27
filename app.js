@@ -40,8 +40,6 @@ var login = require('./routes/login');
 var logout = require('./routes/logout');
 var register = require('./routes/register');
 var users = require('./routes/users');
-var transmit = require('./routes/transmit');
-var wallet = require('./routes/wallet');
 
 app.use('/', index);
 app.use('/projects', projects);
@@ -49,8 +47,6 @@ app.use('/login', login);
 app.use('/logout', logout);
 app.use('/register', register);
 app.use('/users', users);
-app.use('/transmit', transmit);
-app.use('/wallet', wallet);
 
 // if fallen through to notFoundHandler without matching a route, raises 404 error
 app.use(notFoundHandler);
