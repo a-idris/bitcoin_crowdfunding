@@ -9,17 +9,21 @@ const key_utils = require('./key_management');
 var wallet = {};
 
 /**
- * send raw transaction to be transmitted to the Bitcoin network. 
+ * return list of inputs gathered from the list of utxos such that
+ * the sum amount of the inputs >= amount + minFee. Used to get a list of inputs to be able to create an output
+ * with the desired amount. 
  * 
  * @member
  * @function chooseInputs
  * @param {object[]} utxos 
- * @param {string} rawtx 
- * @param {string} rawtx 
+ * @param {number} amount
+ * @param {number} [minFee] The size of the transaction fee to account for.   
+ * @returns {object[]} todo typedef. The list of inputs.
  */
 wallet.chooseInputs = function(utxos, amount, minFee) {
-    if (!minFee) 
-        minFee = 100000;
+    // set default minFee. 
+    minFee = minFee || 100000;
+
     // gather list of inputs to be signed and gathered into a transaction client side 
     let accumAmount = 0;
     let i = 0;

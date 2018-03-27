@@ -373,15 +373,16 @@ router.post('/:id/make_pledge', function (req, res, next) {
 });
 
 /**
- * Check balance of user and if everything is valid return the JSON encoded list of the 
- * Responses sent as JSON for the client side to handle.  
+ * Check balance of user and if everything is valid, using the res object, return a 
+ * JSON encoded list of wallet UTXOs, whose sum amount is sufficient to cover the pledge amount. 
+ * Otherwise send error. Responses are sent as JSON for the client side to handle.  
  * 
  * @param {Object} req Express request object
  * @param {Object} res Express response object
  * @bodyparam {number} amount The req.body.amount property used to check whether the wallet has sufficient funds
  */
 function generateInputs(req, res) {
-    if (!validate_pledge(req.body)) {
+    if (!validate_pledge(req.body, {stage: 'initial'})) {
         res.status(400).json({ 
             status: 400,
             message: "Invalid form data" 
@@ -466,7 +467,10 @@ function update_hd_indices(req, res, indices_to_set, transactionConnection) {
 }
 
 /**
- * Transmit the transaction creating the exact amount, update hd_indices
+ * Transmit the transaction creating the exact amount, update hd_indices. If successful,
+ * return the bitcoin address and fund goal of the project (for which the pledge is being made)
+ * so the client can create the partial pledge transaction. 
+ * Responses sent as JSON for the client side to handle.  
  * 
  * @param {Object} req Express request object
  * @param {Object} res Express response object
@@ -482,6 +486,8 @@ function transmitExactAmount(req, res) {
     .then(response => update_hd_indices(req, res, indices_to_set))
     .then(_ => {
         // if successful, update cookies. if failes, cookies aren't updated. keeps db indices and cookie indices in sync
+        // if sendTx success but update_hd_indices fails, the addresses will be reused again.
+        // however, this happening on occasion is better than having out of sync hd_indices info in db and cookies 
         for (let attr of Object.keys(indices_to_set)) {
             res.cookie(attr, indices_to_set[attr]);
         }
@@ -582,15 +588,43 @@ function transmitPartial(req, res) {
     }
 }
 
-function validate_pledge(pledge, stage) {
-    // amount, txid, vout, signature
-    //convert from strings to int
-    pledge.amount = Number(pledge.amount);
-    // pledge.vout = Number(pledge.vout);
-    if (isNaN(pledge.amount)) {// || isNaN(pledge.vout)) {
-        return false;
+/**
+ * Function to validate pledge form input. Depends on stage. 
+ * 
+ * @param {*} pledge 
+ * @param {*} options 
+ */
+function validate_pledge(pledge, options) {
+    options = options || {};
+    let stage = options.stage || "transmitPartial";
+    
+    // TODO: convert options to boolean=initial
+
+    if (stage === "initial") {
+        // amount, mnemonic
+
+        // convert amount to number
+        pledge.amount = Number(pledge.amount);
+        // must be valid number greater than 0
+        if (isNaN(pledge.amount) || pledge.amount <= 0)
+            return false;
+        
+        //TODO:validate mnemonic
+        
+        return true;
+    } else if (stage === "transmitPartial") {
+        // amount, txid, vout, signature
+
+        //convert from strings to int
+        pledge.amount = Number(pledge.amount);
+        // pledge.vout = Number(pledge.vout);
+        if (isNaN(pledge.amount)) {// || isNaN(pledge.vout)) {
+            return false;
+        }
+
+        return true;
     }
-    return true;
+
 }
 
 module.exports = router;
