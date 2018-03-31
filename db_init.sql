@@ -77,8 +77,8 @@ create table pledge_inputs (
 	outputIndex int not null, 
 	sequenceNumber int not null, 
 	script text not null,
-	output_satoshis int not null,
-	output_script text not null,
+	output_satoshis int not null, --TODELETE
+	output_script text not null, --TODELETE
 	primary key (input_id)
 );
 

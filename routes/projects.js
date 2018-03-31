@@ -354,19 +354,21 @@ router.post('/:id/make_pledge', function (req, res, next) {
             status: 403,
             message: 'Must be logged in to perform this action'
         });
-    } 
+    }
+    
 
     // need multiple client server interactions for this route, so use a body parameter to keep track
-    let stage = req.body.stage;
-    if (!stage) {
+    let stage = req.body.stage || "initial";
+    console.log(`STAGE: ${stage}`);
+    if (stage === "initial") {
         /* the initial stage. check that the user has sufficient funds for the pledge amount, and if so
          return a list of UTXOs. These will be the inputs for the transaction to create an output that
          has exactly the correct amount 
          */ 
         generateInputs(req, res);
-    } else if (stage == "transmitExactAmount") {
+    } else if (stage === "transmitExactAmount") {
         transmitExactAmount(req, res);
-    } else if (stage == "transmitPartial") {
+    } else if (stage === "transmitPartial") {
         transmitPartial(req, res);
         //then(_ => {checkPledges(req,res)})
     }
@@ -412,7 +414,12 @@ function generateInputs(req, res) {
     }, err => send_json_error(res, err));
 }
 
-
+/**
+ * Sends custom error object as JSON with status (defaults to 500) and message. 
+ * 
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ */
 function send_json_error(res, err) {
     let errStatus = err.status || 500;
     res.status(errStatus).json({
@@ -469,8 +476,7 @@ function update_hd_indices(req, res, indices_to_set, transactionConnection) {
 /**
  * Transmit the transaction creating the exact amount, update hd_indices. If successful,
  * return the bitcoin address and fund goal of the project (for which the pledge is being made)
- * so the client can create the partial pledge transaction. 
- * Responses sent as JSON for the client side to handle.  
+ * so the client can create the partial pledge transaction. Responses sent as JSON for the client side to handle.  
  * 
  * @param {Object} req Express request object
  * @param {Object} res Express response object
@@ -513,6 +519,7 @@ function transmitExactAmount(req, res) {
  * @param {Object} res Express response object
  */
 function transmitPartial(req, res) {
+    console.log("INPUT RECEIVED", req.body);
     res.status(200).json({
         status: 200,
         message: "submitted"

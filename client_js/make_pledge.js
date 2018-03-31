@@ -26,6 +26,7 @@ $(document).ready(function() {
         };
         context.url = $(context.this_form).attr('action'); // use url from form action attribute
 
+        // make the initial stage post request
         $.ajax({
             type: "POST",
             url: context.url, 
@@ -39,7 +40,7 @@ $(document).ready(function() {
 
 /**
  * 
- * @param {object} data 
+ * @param {object} data The JSON encoded tx inputs returned from the server
  */
 function createExactAmount(data) {
     let inputs = data;
@@ -47,18 +48,20 @@ function createExactAmount(data) {
     let xpriv = keyutils.generateXpriv(this.form_data.mnemonic);
     let cookie = parseCookie();
 
+    // create a transaction that creates a UTXO with value equal to the exact amount 
     let transaction = wallet.createExactAmount(inputs, Number(this.form_data.amount), xpriv, Number(cookie.external_index), Number(cookie.change_index));
-    // set the appropriate private key
-    this.privateKey = keyutils.derive(xpriv, 'xpriv', `m/${cookie.external_index}`).privateKey;
+    // the transaction is sending the amount to the public key address at external_index. save the private key corresponding to this public key
+    this.privateKey = keyutils.derive(xpriv, 'xpriv', `m/0/${cookie.external_index}`).privateKey;
 
     $.ajax({
         type: "POST",
-        url: this.url,
+        url: this.url, // the same url
         data: { 
-            serialized_tx: transaction.serialize(), 
-            stage: "transmitExactAmount"
+            stage: "transmitExactAmount", // the next stage. the server will transmit the transaction
+            serialized_tx: transaction.serialize() 
         },
         success: data => {
+            // bind 'this' so that createPartial has access to the private key
             createPartial.call(this, transaction.toObject(), data)
         },
         error: displayError.bind(this.this_form),
@@ -69,17 +72,29 @@ function createExactAmount(data) {
 
 }
 
+/**
+ * 
+ * @param {Transaction} prevTransaction The transaction created in {@link createExactAmount}
+ * @param {object} outputInfo The project info
+ * @param {string} outputInfo.address 
+ * @param {number} outputInfo.fund_goal
+ */
 function createPartial(prevTransaction, outputInfo) {
     outputInfo.fund_goal = Number(outputInfo.fund_goal);
+    // craft the final transaction, making the pledge of the exact amount to the project creator
     let transaction = wallet.createPartial(prevTransaction, outputInfo, this.privateKey);
+    // just need the input of this transaction - the rest can be recreated
+    let input = wallet.getInput(transaction);
 
     $.ajax({
         type: "POST",
         url: this.url,
         data: {     
-            stage: "transmitPartial"
+            stage: "transmitPartial", // signal the stage to the server
+            input: input 
         },
         success: function(data) {
+            // reload? the page should be updated with new project progress
             console.log("success");
         },
         error: displayError.bind(this.this_form),
@@ -87,24 +102,27 @@ function createPartial(prevTransaction, outputInfo) {
     });
 }
 
+/**
+ * Display error message to the user. Callback for ajax error handling. 
+ * 
+ * @param {object} jqXhr jquery XMLHttpRequest object
+ * @param {object} jqXhr.responseJSON the response json
+ */
 function displayError(jqXhr) {
     let data = jqXhr.responseJSON;
     console.log("error", data.status, data.message);
+    // append error message to the form
     let error_msg = $('<p>').addClass("text-danger error-message").text(`Error ${data.status}: ${data.message}`);
     var existing_messages = $(this).children('p.error-message');
     if (existing_messages.length == 0) {
         $(this).append(error_msg);
     } else {
+        // if an error message already exists, replace it
         existing_messages.first().text(`Error ${data.status}: ${data.message}`);
     }
 }
 
-// params: scriptPubKey, seed, amount 
-function craft_transaction() {
-    //document.cookie.seed
-    return {
-        txid: "txid",
-        vout: 1,
-        signature: "signature"
-    }
+
+function displaySuccess(data) {
+
 }
