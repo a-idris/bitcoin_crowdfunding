@@ -164,6 +164,23 @@ wallet.getInput = function(transaction, index) {
     return inputs[index]; 
 }
 
+wallet.compileTransaction = function(pledgeInputs, outputInfo) {
+    let transaction = new bitcore.Transaction().to(outputInfo.address, outputInfo.fund_goal);
+    
+    // attach the inputs to the transaction
+    let inputs = pledgeInputs.map(object => bitcore.Transaction.Input(object));
+    for (let input of inputs) {
+        transaction.addInput(input);
+    }
+
+    let result = transaction.verify();
+    if (result === true) {
+        return transaction;
+    } else {
+        throw new Error(result);
+    }    
+}
+
 wallet.toBtc = function(satoshis) {
     return bitcore.Unit.fromSatoshis(satoshis).toBTC();
 }

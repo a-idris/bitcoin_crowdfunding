@@ -73,13 +73,15 @@ create table project_comments (
 drop table if exists pledge_inputs;
 create table pledge_inputs (
 	input_id int not null auto_increment,
+	pledge_id int not null,
 	prevTxId char(64) not null, -- unique 
 	outputIndex int not null, 
 	sequenceNumber int not null, 
 	script text not null,
-	output_satoshis int not null, --TODELETE
-	output_script text not null, --TODELETE
-	primary key (input_id)
+	output_satoshis bigint not null, 
+	output_script text not null,
+	primary key (input_id),
+	foreign key (pledge_id) references pledges(pledge_id) on delete cascade
 );
 
 drop table if exists pledges;
@@ -87,13 +89,11 @@ create table pledges (
 	pledge_id int not null auto_increment,
 	user_id int not null, 
 	project_id int not null, 
-	input_id int not null, 
 	amount bigint not null,
 	pledge_time datetime not null,
 	primary key (pledge_id),
 	foreign key (user_id) references users(user_id) on delete cascade,
-	foreign key (project_id) references projects(project_id) on delete cascade,
-	foreign key (input_id) references pledge_inputs(input_id) on delete cascade
+	foreign key (project_id) references projects(project_id) on delete cascade
 );
 
 -- SET FOREIGN_KEY_CHECKS=1;

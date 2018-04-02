@@ -384,7 +384,7 @@ router.post('/:id/make_pledge', function (req, res, next) {
  * @bodyparam {number} amount The req.body.amount property used to check whether the wallet has sufficient funds
  */
 function generateInputs(req, res) {
-    if (!validate_pledge(req.body, {stage: 'initial'})) {
+    if (!validate_make_pledge(req.body, {stage: 'initial'})) {
         res.status(400).json({ 
             status: 400,
             message: "Invalid form data" 
@@ -412,6 +412,260 @@ function generateInputs(req, res) {
         // return the inputs to be created into a transaction
         res.json(inputs);
     }, err => send_json_error(res, err));
+}
+
+/**
+ * Transmit the transaction creating the exact amount, update hd_indices. If successful,
+ * return the bitcoin address and fund goal of the project (for which the pledge is being made)
+ * so the client can create the partial pledge transaction. Responses sent as JSON for the client side to handle.  
+ * 
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ */
+function transmitExactAmount(req, res) {
+    // the transaction generated will have two outputs, with one external address and one change address. thus wil need to increment accordingly
+    let indices_to_set = {
+        external_index: Number(req.cookies.external_index) + 1,
+        change_index: Number(req.cookies.change_index) + 1
+    }
+
+    blockchain.sendTx(req.body.serialized_tx)
+    .then(response => update_hd_indices(req, res, indices_to_set))
+    .then(_ => {
+        // if successful, update cookies. if failes, cookies aren't updated. keeps db indices and cookie indices in sync
+        // if sendTx success but update_hd_indices fails, the addresses will be reused again.
+        // however, this happening on occasion is better than having out of sync hd_indices info in db and cookies 
+        for (let attr of Object.keys(indices_to_set)) {
+            res.cookie(attr, indices_to_set[attr]);
+        }
+
+        // pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
+        let query_str = "select address, fund_goal from projects where project_id=?";
+        db.query(query_str, [req.params.id])
+        .then(results => {
+            let project_details = results[0];
+            if (project_details) {
+                res.status(200).json(project_details);
+            } else {
+                return Promise.reject(new Error("retrieving project details failed"));
+            }
+        });
+    })
+    .catch(err => send_json_error(res, err)); 
+}
+
+/**
+ * 
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ */
+function transmitPartial(req, res) {
+    let txInput = req.body.input;
+    let pledge_amount = Number(req.body.amount); // the amount being pledged.
+
+    if (!validate_make_pledge(txInput, {stage: 'transmitPartial'})) {
+        res.status(400).json({ 
+            status: 400,
+            message: "Malformed transaction input received" 
+        });
+    }
+    console.log("pledging", req.body);
+    let project_id = req.params.id;
+    let transactionConnection; // will need to use a transaction
+
+    // get project info
+    let query_str = "select * from projects where project_id=?";
+    db.query(query_str, [project_id])
+    .then(project_results => {
+        var project = project_results[0];
+        if (!project) {
+            let err = new Error("No such project");
+            err.status= 400;
+            return Promise.reject(err);
+        }
+
+        //TODO: DEADLINE CHECK
+
+        return db.begin_transaction(connection => {
+            // save the connection
+            transactionConnection = connection;
+            // create pledge entry in the db
+            query_str = "insert into pledges values (NULL, ?, ?, ?, now())";
+            var values = [ req.session.user_id, project_id, pledge_amount ]; 
+            //returns pledge_id of inserted row
+            return db.query(query_str, values, {transactionConnection: transactionConnection});
+        });
+    })  
+    .then(results => { 
+        let pledge_id = results.insertId;
+        if (pledge_id) {
+            // insert the input object itself into pledge_inputs table   
+            query_str = "insert into pledge_inputs values (NULL, ?, ?, ?, ?, ?, ?, ?)";
+            values = [ pledge_id, txInput.prevTxId, txInput.outputIndex, txInput.sequenceNumber, txInput.script, txInput.output.satoshis, txInput.output.script];
+            return db.query(query_str, values, {transactionConnection: transactionConnection});
+        } else {
+            // roll back the transaction if something went wrong
+            return db.rollback(transactionConnection).then(rollback_success => {
+                return Promise.reject(new Error('Insert operation failed'));            
+            });
+        }
+    })
+    .then(results => {
+        let input_id = results.insertId;
+        if (input_id) {
+            // update the amount_pledged for the project in the projects table
+            let new_amount_pledged = Number(project.amount_pledged) + pledge_amount;
+            query_str = "update projects set amount_pledged=? where project_id=?";
+            values = [new_amount_pledged, project_id];
+            return db.query(query_str, values, {transactionConnection: transactionConnection});
+        } else {
+            // roll back the transaction if something went wrong
+            return db.rollback(transactionConnection).then(rollback_success => {
+                return Promise.reject(new Error('Insert operation failed'));            
+            });                                        
+        }
+    })
+    .then(results => {
+        // check affectedRows attribute to see if the operation succeeded
+        if (results.affectedRows == 1) {
+            // commit the transaction
+            db.commit(transactionConnection).then(commitSuccess => {
+                compilePartialTransaction(project_id).then(successStatus => {
+                    res.status(200).json({ status: 200 });
+                });
+            });
+        } else {
+            return Promise.reject(new Error('Update operation failed'));
+        }
+    })
+    .catch(error => {
+        res.status(error.status || 500).json({ 
+            status: error.status || 500,
+            message: error.message 
+        });
+    }); 
+}
+
+/** 
+ * Check if the project has enough inputs to meet the fund_goal, and if so construct and transmit the funding transaction 
+*/
+function compilePartialTransaction(project_id) {
+    let project;
+    let query_str = "select * from projects where project_id=?";
+    db.query(query_str, [project_id])
+    .then(results => {
+        project = results[0];
+        if (project) {
+            let pledged = Number(project.amount_pledged);
+            let goal = Number(project.fund_goal);
+            
+            if (pledged < goal) {
+                return false;
+            } else {
+                // get all the pledge inputs for this project
+                query_str = "select * from pledges natural join pledge_inputs where project_id=?";
+                return db.query(query_str, [project_id]);
+            }
+        } else {
+            return Promise.reject(new Error('Invalid project id'));
+        }
+    })
+    .then(pledge_inputs => {
+        if (!pledge_inputs.length)
+            return false;
+        
+        let fundingTransaction = wallet.compileTransaction(pledge_inputs, {
+            address: project.address,
+            fund_goal: project.fund_goal
+        });
+
+        return blockchain.sendTx(fundingTransaction).then(response => {
+            
+            return status == 200;
+        });
+    })
+    .catch(error => {
+        throw error;
+    });
+}
+
+/**
+ * Function to validate data from make_pledge route. Depends on stage. 
+ * 
+ * @param {object} data 
+ * @param {object} options 
+ * @param {string} [options.stage='initial']  
+ * 
+ * @returns {boolean}
+ */
+function validate_make_pledge(data, options) {
+    options = options || {};
+    let stage = options.stage || "initial";
+    if (stage === "initial") {
+        // amount, mnemonic
+        // convert amount to number
+        data.amount = Number(pledge.amount);
+        // must be valid number greater than 0
+        if (isNaN(pledge.amount) || pledge.amount <= 0)
+            return false;
+        //TODO:validate mnemonic
+        return true;
+    } else if (stage === "transmitPartial") {
+        return _validateTxInput(data);
+    }
+}
+
+/**
+ * @param {object} input the transaction Input object
+ * @param {string} input.prevTxId the id of the tx containing this output
+ * @param {number} input.outputIndex the index of this output in tx referenced by prevTxId
+ * @param {number} input.sequenceNumber
+ * @param {string} input.script the script as a hex string
+ * @param {object} input.output
+ * @param {number} input.output.satoshis The value / amount in the output (in satoshis)
+ * @param {string} input.output.script The locking script for the output in prevTx 
+ * @param {string} [input.scriptString] human readable form of the script
+ * 
+ * @returns {boolean}
+ */
+function _validateTxInput(input) {
+    let expected_properties = ['prevTxId', 'outputIndex', 'sequenceNumber', 'script', 'output'];
+    let input_properties = Object.keys(input);
+
+    // check that all the expected properties exist
+    if (!expected_properties.every(prop => submission_properties.indexOf(prop) >= 0))
+        return false;
+
+    // check string properties are valid
+    if (!validate_text(input.prevTxId) || !validate_text(input.script) || !validate_text(input.output.script)) 
+        return false;
+
+    // check the optional string property
+    if (input.hasOwnProperty('scriptString') && !validate_text(input.scriptString))
+        return false;
+
+    // check number properties are valid
+
+    // convert outputIndex to number
+    input.outputIndex = Number(input.outputIndex);
+    // must be valid number greater than 0
+    if (isNaN(input.outputIndex) || input.outputIndex <= 0)
+        return false;
+
+    // convert sequenceNumber to number
+    input.sequenceNumber = Number(input.sequenceNumber);
+    // must be valid number greater than 0
+    if (isNaN(input.sequenceNumber) || input.sequenceNumber <= 0)
+        return false;
+
+    // convert output.satoshis to number
+    input.output.satoshis = Number(input.output.satoshis);
+    // must be valid number greater than 0
+    if (isNaN(input.output.satoshis) || input.output.satoshis <= 0)
+        return false;
+
+    // all checks passed
+    return true;
 }
 
 /**
@@ -471,167 +725,6 @@ function update_hd_indices(req, res, indices_to_set, transactionConnection) {
             return Promise.reject(new Error('Update operation failed'));            
         }
     });
-}
-
-/**
- * Transmit the transaction creating the exact amount, update hd_indices. If successful,
- * return the bitcoin address and fund goal of the project (for which the pledge is being made)
- * so the client can create the partial pledge transaction. Responses sent as JSON for the client side to handle.  
- * 
- * @param {Object} req Express request object
- * @param {Object} res Express response object
- */
-function transmitExactAmount(req, res) {
-    // the transaction generated will have two outputs, with one external address and one change address. thus wil need to increment accordingly
-    let indices_to_set = {
-        external_index: Number(req.cookies.external_index) + 1,
-        change_index: Number(req.cookies.change_index) + 1
-    }
-
-    blockchain.sendTx(req.body.serialized_tx)
-    .then(response => update_hd_indices(req, res, indices_to_set))
-    .then(_ => {
-        // if successful, update cookies. if failes, cookies aren't updated. keeps db indices and cookie indices in sync
-        // if sendTx success but update_hd_indices fails, the addresses will be reused again.
-        // however, this happening on occasion is better than having out of sync hd_indices info in db and cookies 
-        for (let attr of Object.keys(indices_to_set)) {
-            res.cookie(attr, indices_to_set[attr]);
-        }
-
-        // pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
-        let query_str = "select address, fund_goal from projects where project_id=?";
-        db.query(query_str, [req.params.id])
-        .then(results => {
-            let project_details = results[0];
-            if (project_details) {
-                res.status(200).json(project_details);
-            } else {
-                return Promise.reject(new Error("retrieving project details failed"));
-            }
-        });
-    })
-    .catch(err => send_json_error(res, err)); 
-}
-
-/**
- * 
- * @param {Object} req Express request object
- * @param {Object} res Express response object
- */
-function transmitPartial(req, res) {
-    console.log("INPUT RECEIVED", req.body);
-    res.status(200).json({
-        status: 200,
-        message: "submitted"
-    });
-    return;
-
-    if (validate_pledge(req.body)) {
-        // amount, txid, vout, signature
-        console.log("pledging", req.body);
-
-        let project_id = req.params.id;
-        let project;
-        // get project info
-        let query_str = "select * from projects where project_id=?";
-        db.query(query_str, [project_id])
-        .then(project_results => {
-            project = project_results[0];
-            if (!project) {
-                let err = new Error("No such project");
-                err.status= 400;
-                return Promise.reject(err);
-            }
-            // insert into pledge inputs to get input_id  
-            query_str = "insert into pledge_inputs values (NULL, ?, ?, ?)";
-            var values = [ req.body.txid, req.body.vout, req.body.signature ];
-            //return id of inserted row. will throw error if hasn't been inserted and trying to access insertId
-            return db.query(query_str, values);
-        })  
-        .then(results => { 
-            let input_id = results.insertId;
-            if (input_id) {
-                query_str = "insert into pledges values (NULL, ?, ?, ?, ?, now())";
-                values = [ req.session.user_id, project_id, input_id, req.body.amount ] 
-                return db.query(query_str, values);
-            } else {
-                return Promise.reject(new Error('Insert operation failed'));            
-            }
-        })
-        .then(results => {
-            let pledge_id = results.insertId;
-            if (pledge_id) {
-                // need time checks. 
-                // update the amount_pledged for the project in the projects table
-                let new_amount_pledged = project.amount_pledged + req.body.amount;
-                query_str = "update projects set amount_pledged=? where project_id=?";
-                values = [new_amount_pledged, project_id];
-                return db.query(query_str, values);
-            } else {
-                return Promise.reject(new Error('Insert operation failed'));                            
-            }
-        })
-        .then(results => {
-            // check affectedRows attribute to see if the operation succeeded
-            if (results.affectedRows == 1) {
-                // need time checks. 
-                res.status(200).json({ status: 200 });
-                return;
-            } else {
-                return Promise.reject(new Error('Update operation failed'));
-            }
-        })
-        .catch(error => {
-            res.status(error.status || 500).json({ 
-                status: error.status || 500,
-                message: error.message 
-            });
-        }); 
-    } else {
-        res.status(400).json({ 
-            status: 400,
-            message: "Invalid form data" 
-        });
-    }
-}
-
-/**
- * Function to validate pledge form input. Depends on stage. 
- * 
- * @param {*} pledge 
- * @param {*} options 
- */
-function validate_pledge(pledge, options) {
-    options = options || {};
-    let stage = options.stage || "transmitPartial";
-    
-    // TODO: convert options to boolean=initial
-
-    if (stage === "initial") {
-        // amount, mnemonic
-
-        // convert amount to number
-        pledge.amount = Number(pledge.amount);
-        // must be valid number greater than 0
-        if (isNaN(pledge.amount) || pledge.amount <= 0)
-            return false;
-        
-        //TODO:validate mnemonic
-        
-        return true;
-    } else if (stage === "transmitPartial") {
-        // amount, txid, vout, signature
-
-        //convert from strings to int
-        pledge.amount = Number(pledge.amount);
-        // pledge.vout = Number(pledge.vout);
-        if (isNaN(pledge.amount)) {// || isNaN(pledge.vout)) {
-            return false;
-        }
-
-        return true;
-    }
-
 }
 
 module.exports = router;
