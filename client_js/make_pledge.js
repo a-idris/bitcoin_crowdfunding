@@ -30,7 +30,9 @@ $(document).ready(function() {
         $.ajax({
             type: "POST",
             url: context.url, 
-            data: context.form_data.amount, // don't pass mnemonic 
+            data: { 
+                amount: context.form_data.amount
+            }, // don't pass mnemonic 
             success: createExactAmount.bind(context), // bind context object to be used as 'this' 
             error: displayError.bind(context.this_form), // bind form context
             dataType: 'json'
@@ -88,7 +90,7 @@ function createPartial(prevTransaction, outputInfo) {
         url: this.url,
         data: {     
             stage: "transmitPartial", // signal the stage to the server
-            input: input,
+            input: JSON.stringify(input), // stringify since nested
             amount: this.form_data.amount 
         },
         success: function(data) {

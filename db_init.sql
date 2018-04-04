@@ -25,8 +25,8 @@ drop table if exists hd_indices;
 create table hd_indices (
 	index_id int not null auto_increment,
 	user_id int not null,
-	change_index int not null,
-	external_index int not null,	
+	change_index int unsigned not null,
+	external_index int unsigned not null,	
 	primary key (index_id),
 	foreign key (user_id) references users(user_id) on delete cascade
 );
@@ -75,8 +75,8 @@ create table pledge_inputs (
 	input_id int not null auto_increment,
 	pledge_id int not null,
 	prevTxId char(64) not null, -- unique 
-	outputIndex int not null, 
-	sequenceNumber int not null, 
+	outputIndex int unsigned not null, 
+	sequenceNumber int unsigned not null, 
 	script text not null,
 	output_satoshis bigint not null, 
 	output_script text not null,
@@ -89,7 +89,7 @@ create table pledges (
 	pledge_id int not null auto_increment,
 	user_id int not null, 
 	project_id int not null, 
-	amount bigint not null,
+	amount bigint unsigned not null,
 	pledge_time datetime not null,
 	primary key (pledge_id),
 	foreign key (user_id) references users(user_id) on delete cascade,

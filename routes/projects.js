@@ -460,7 +460,7 @@ function transmitExactAmount(req, res) {
  * @param {Object} res Express response object
  */
 function transmitPartial(req, res) {
-    let txInput = req.body.input;
+    let txInput = JSON.parse(req.body.input);
     let pledge_amount = Number(req.body.amount); // the amount being pledged.
 
     if (!validate_make_pledge(txInput, {stage: 'transmitPartial'})) {
@@ -469,32 +469,33 @@ function transmitPartial(req, res) {
             message: "Malformed transaction input received" 
         });
     }
-    console.log("pledging", req.body);
+    //console.log("pledging", req.body);
     let project_id = req.params.id;
+    let project;
     let transactionConnection; // will need to use a transaction
 
     // get project info
     let query_str = "select * from projects where project_id=?";
     db.query(query_str, [project_id])
     .then(project_results => {
-        var project = project_results[0];
+        project = project_results[0];
         if (!project) {
             let err = new Error("No such project");
             err.status= 400;
             return Promise.reject(err);
         }
 
-        //TODO: DEADLINE CHECK
-
-        return db.begin_transaction(connection => {
-            // save the connection
-            transactionConnection = connection;
-            // create pledge entry in the db
-            query_str = "insert into pledges values (NULL, ?, ?, ?, now())";
-            var values = [ req.session.user_id, project_id, pledge_amount ]; 
-            //returns pledge_id of inserted row
-            return db.query(query_str, values, {transactionConnection: transactionConnection});
-        });
+        // start the transaction
+        return db.begin_transaction();
+    })
+    .then(connection => {
+        // save the connection to be used for the transaction
+        transactionConnection = connection;
+        // create pledge entry in the db
+        query_str = "insert into pledges values (NULL, ?, ?, ?, now())";
+        var values = [ req.session.user_id, project_id, pledge_amount ]; 
+        //returns pledge_id of inserted row
+        return db.query(query_str, values, {transactionConnection: transactionConnection});
     })  
     .then(results => { 
         let pledge_id = results.insertId;
@@ -530,9 +531,11 @@ function transmitPartial(req, res) {
         if (results.affectedRows == 1) {
             // commit the transaction
             db.commit(transactionConnection).then(commitSuccess => {
-                compilePartialTransaction(project_id).then(successStatus => {
-                    res.status(200).json({ status: 200 });
-                });
+                console.log("success");
+                res.status(200).json({ status: 200 });
+                // compilePartialTransaction(project_id).then(successStatus => {
+                //     res.status(200).json({ status: 200 });
+                // });
             });
         } else {
             return Promise.reject(new Error('Update operation failed'));
@@ -604,9 +607,9 @@ function validate_make_pledge(data, options) {
     if (stage === "initial") {
         // amount, mnemonic
         // convert amount to number
-        data.amount = Number(pledge.amount);
+        data.amount = Number(data.amount);
         // must be valid number greater than 0
-        if (isNaN(pledge.amount) || pledge.amount <= 0)
+        if (isNaN(data.amount) || data.amount <= 0)
             return false;
         //TODO:validate mnemonic
         return true;
@@ -633,7 +636,7 @@ function _validateTxInput(input) {
     let input_properties = Object.keys(input);
 
     // check that all the expected properties exist
-    if (!expected_properties.every(prop => submission_properties.indexOf(prop) >= 0))
+    if (!expected_properties.every(prop => input_properties.indexOf(prop) >= 0))
         return false;
 
     // check string properties are valid
@@ -649,13 +652,13 @@ function _validateTxInput(input) {
     // convert outputIndex to number
     input.outputIndex = Number(input.outputIndex);
     // must be valid number greater than 0
-    if (isNaN(input.outputIndex) || input.outputIndex <= 0)
+    if (isNaN(input.outputIndex) || input.outputIndex < 0)
         return false;
 
     // convert sequenceNumber to number
     input.sequenceNumber = Number(input.sequenceNumber);
     // must be valid number greater than 0
-    if (isNaN(input.sequenceNumber) || input.sequenceNumber <= 0)
+    if (isNaN(input.sequenceNumber) || input.sequenceNumber < 0)
         return false;
 
     // convert output.satoshis to number
