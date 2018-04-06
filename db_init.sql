@@ -43,6 +43,7 @@ create table projects (
 	amount_pledged bigint default 0,
 	date_added datetime not null,
 	deadline datetime,
+	token char(64) not null,
 	primary key (project_id),
 	foreign key (user_id) references users(user_id) on delete cascade
 );

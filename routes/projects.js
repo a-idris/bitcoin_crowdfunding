@@ -15,7 +15,7 @@ const db = require('../src/database').get_db();
 const blockchain = require('../src/api');
 /** Wallet util functions */
 const wallet = require('../src/wallet');
-
+const crypto = require('crypto');
 
 /**
  * Display form to create a project.
@@ -51,6 +51,9 @@ router.post('/create', function (req, res, next) {
     } 
     console.log(req.body);
     if (validate_create_project(req.body)) {
+        //create secret token for the project to be used when unlocking the pledge inputs. 
+        let secretToken = crypto.randomBytes(64).toString('hex');
+
         // start transaction to insert details into projects table and update hd wallet indices
         let transactionConnection;
         db.begin_transaction()
@@ -58,8 +61,8 @@ router.post('/create', function (req, res, next) {
             // save for easier access
             transactionConnection = connection;
             // the initial amount_pledged is set to 0 in the query 
-            let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?)";
-            let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.address, req.body.fund_goal, req.body.deadline];
+            let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?, ?)";
+            let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.address, req.body.fund_goal, req.body.deadline, secretToken];
             return db.query(query_str, values, {transactionConnection: transactionConnection});
         })
         .then(results => { 
@@ -356,22 +359,31 @@ router.post('/:id/make_pledge', function (req, res, next) {
         });
     }
     
+    // get project info
+    let query_str = "select * from projects where project_id=?";
+    db.query(query_str, [req.params.id])
+    .then(results => {
+        let project = results[0];
+        if (!project) {
+            return Promise.reject(new Error("retrieving project details failed"));
+        }
 
-    // need multiple client server interactions for this route, so use a body parameter to keep track
-    let stage = req.body.stage || "initial";
-    console.log(`STAGE: ${stage}`);
-    if (stage === "initial") {
-        /* the initial stage. check that the user has sufficient funds for the pledge amount, and if so
-         return a list of UTXOs. These will be the inputs for the transaction to create an output that
-         has exactly the correct amount 
-         */ 
-        generateInputs(req, res);
-    } else if (stage === "transmitExactAmount") {
-        transmitExactAmount(req, res);
-    } else if (stage === "transmitPartial") {
-        transmitPartial(req, res);
-        //then(_ => {checkPledges(req,res)})
-    }
+        // need multiple client server interactions for this route, so use a body parameter to keep track
+        let stage = req.body.stage || "initial";
+        console.log(`STAGE: ${stage}`);
+        if (stage === "initial") {
+            /* the initial stage. check that the user has sufficient funds for the pledge amount, and if so
+            return a list of UTXOs. These will be the inputs for the transaction to create an output that
+            has exactly the correct amount 
+            */ 
+            generateInputs(req, res, project);
+        } else if (stage === "transmitExactAmount") {
+            transmitExactAmount(req, res, project);
+        } else if (stage === "transmitPartial") {
+            transmitPartial(req, res, project);
+            //then(_ => {checkPledges(req,res)})
+        }
+    });
 });
 
 /**
@@ -383,7 +395,7 @@ router.post('/:id/make_pledge', function (req, res, next) {
  * @param {Object} res Express response object
  * @bodyparam {number} amount The req.body.amount property used to check whether the wallet has sufficient funds
  */
-function generateInputs(req, res) {
+function generateInputs(req, res, project) {
     if (!validate_make_pledge(req.body, {stage: 'initial'})) {
         res.status(400).json({ 
             status: 400,
@@ -409,8 +421,13 @@ function generateInputs(req, res) {
     .then(utxos => {
         // choose a subset of these UTXOs that cover the amount needed  
         let inputs = wallet.chooseInputs(utxos, req.body.amount);
+        let secretToken = Buffer.from(project.token, 'hex');
+        let tokenHash = wallet.hash160(secretToken);
         // return the inputs to be created into a transaction
-        res.json(inputs);
+        res.json({
+            inputs: inputs,
+            secretHash: tokenHash
+        });
     }, err => send_json_error(res, err));
 }
 
@@ -422,7 +439,7 @@ function generateInputs(req, res) {
  * @param {Object} req Express request object
  * @param {Object} res Express response object
  */
-function transmitExactAmount(req, res) {
+function transmitExactAmount(req, res, project) {
     // the transaction generated will have two outputs, with one external address and one change address. thus wil need to increment accordingly
     let indices_to_set = {
         external_index: Number(req.cookies.external_index) + 1,
@@ -440,15 +457,10 @@ function transmitExactAmount(req, res) {
         }
 
         // pass the output info (address, amount) of this project back so the client can create the partial pledge transaction
-        let query_str = "select address, fund_goal from projects where project_id=?";
-        db.query(query_str, [req.params.id])
-        .then(results => {
-            let project_details = results[0];
-            if (project_details) {
-                res.status(200).json(project_details);
-            } else {
-                return Promise.reject(new Error("retrieving project details failed"));
-            }
+        res.status(200).json({
+            address: project.address,
+            fund_goal: project.fund_goal,
+            secret: project.token
         });
     })
     .catch(err => send_json_error(res, err)); 
@@ -459,7 +471,7 @@ function transmitExactAmount(req, res) {
  * @param {Object} req Express request object
  * @param {Object} res Express response object
  */
-function transmitPartial(req, res) {
+function transmitPartial(req, res, project) {
     let txInput = JSON.parse(req.body.input);
     let pledge_amount = Number(req.body.amount); // the amount being pledged.
 
@@ -471,23 +483,9 @@ function transmitPartial(req, res) {
     }
     //console.log("pledging", req.body);
     let project_id = req.params.id;
-    let project;
     let transactionConnection; // will need to use a transaction
 
-    // get project info
-    let query_str = "select * from projects where project_id=?";
-    db.query(query_str, [project_id])
-    .then(project_results => {
-        project = project_results[0];
-        if (!project) {
-            let err = new Error("No such project");
-            err.status= 400;
-            return Promise.reject(err);
-        }
-
-        // start the transaction
-        return db.begin_transaction();
-    })
+    db.begin_transaction()
     .then(connection => {
         // save the connection to be used for the transaction
         transactionConnection = connection;
