@@ -52,8 +52,9 @@ wallet.chooseInputs = function(utxos, amount, minFee) {
     return inputs;    
 }
 
-function toBitcoinTime() {
-
+function toBitcoinTime(dateStr) {
+    let unixTime = Date.parse(dateStr);
+    return unixTime + 3600; // add an hour additional since bitcoin consensus time is approximately one hour behind
 };
 
 /**
@@ -86,10 +87,12 @@ wallet.createLockedOutput = function(inputs, amount, secretHash, deadline, xpriv
     // craft the transaction
     let transaction = new bitcore.Transaction().from(utxos);
 
+    let privateKey = key_utils.derive(xpriv, 'xpriv', `m/0/${external_index}`);
+
     // create the P2SH output
     let locktime = toBitcoinTime(deadline);
 
-    let redeemScript = exactAmountRedeemScript(secretHash, xpub.publicKey, locktime);
+    let redeemScript = lockedOutputRedeemScript(secretHash, privateKey.publicKey, locktime);
     let output = new bitcore.Transaction.Output({
         script: redeemScript.toScriptHashOut(), // convert to P2SH form
         satoshis: amount
@@ -100,58 +103,100 @@ wallet.createLockedOutput = function(inputs, amount, secretHash, deadline, xpriv
     // returns error message if invalid 
     let result = transaction.verify();
     if (result === true) {
+        prevTransaction, refundAddress, privateKey, redeemScript, locktime) {
+
+        let change_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index+1}`));    
+        let refundTransaction = createRefundTransaction(transaction, refundAddress, privateKey, redeemScript, locktime);
+
         // return the transaction as well as the redeemScript that will be needed later.
-        return { transaction: transaction, redeemScript = redeemScript };
+        return { 
+            transaction: transaction,
+            redeemScript: redeemScript, 
+            refundTransaction: refundTransaction 
+        };
     }
     throw new Error(result);
 }
 
-// secret = private_key.encrypt(project_description);
+function trimWhitespace(scriptString) {
+    let trimmed =  scriptString.trim();
+    return trimmed.replace(/\s/g, ' ');
+}
 
-function exactAmountRedeemScript(secretHash, publicKey, locktime) {
+/**
+ * 
+ * @param {string} scriptString 
+ * @param {Buffer[]} dataParams 
+ */
+function toScript(scriptString) {
+    scriptString = trimWhitespace(scriptString);
+    let tokens = scriptString.split(' ');
+
+    let finalScript = tokens.reduce((script, token) => {
+        if (word.startsWith("{")) {
+            // strip 
+            hexString = curr.replace( /{}/g, '' );
+            // add data params as buffers
+            script.add(Buffer.from(hexString, 'hex'));
+        } else {
+            script.add(curr);
+        }
+        return script;
+    }, new bitcore.Script());
+
+    return finalScript;
+}
+
+function lockedOutputRedeemScript(secretHash, publicKey, locktime) {
     // HASH160(x) == RIPEMD-160(SHA256(x))
-    let publicKeyHash = bitcore.crypto.Hash.sha256ripemd160(publicKey.toBuffer());
+
+    let publicKeyHex = publicKey.toString();
+    // hex encode locktime
+    let locktimeHex = locktime.toString(16);
+
     // expect (Signature, Public Key [, secretHash]) as input 
     let scriptString = `
-        OP_DUP /*OP_HASH160*/ ${secretHash} OP_EQUAL
-        OP_IF
-            OP_DROP
-            OP_DUP
-            ${publicKeyHash} 
-            OP_EQUALVERIFY
-            OP_CHECKSIG
-        OP_ELSE
-            ${locktime} OP_CHECKTIMELOCKVERIFY OP_DROP
-            OP_DUP
-            ${publicKeyHash}
-            OP_EQUALVERIFY
-            OP_CHECKSIG
+        OP_HASH160 {${secretHash}} OP_EQUAL
+        OP_NOTIF
+            {${locktime}} OP_CHECKTIMELOCKVERIFY OP_DROP
         OP_ENDIF
+        {${publicKeyHex}}
+        OP_CHECKSIG
     `;
 
-    // let scriptString = `
-    //     OP_DUP /*OP_HASH160*/ ${secretHash} OP_EQUAL
-    //     OP_IF
-    //         OP_DROP
-    //     OP_ELSE
-    //         ${deadline}
-    //         OP_CHECKTIMELOCKVERIFY
-    //     OP_ENDIF
-    //     OP_DUP
-    //     ${publicKeyHash}
-    //     OP_EQUALVERIFY
-    //     OP_CHECKSIG
-    // `;
-    //whitespace?
-    // HASH160 <expected hash> EQUALVERIFY <Bob's Pubkey> CHECKSIG
-    // scriptString = trimWhitespace(scriptString);
-    let redeemScript = bitcore.Script(scriptString);
+    let redeemScript = toScript(scriptString);
     return redeemScript;
 }
 
-wallet.createRefund = function(transaction, privateKey, locktime) {
-    // call in exact? or partial?
+wallet.createRefundTransaction = function(prevTransaction, refundAddress, privateKey, redeemScript, locktime) {
+    // create the input from the transaction object. 
+    let inputObj = {};
+    inputObj.prevTxId = prevTransaction.hash;
+    inputObj.outputIndex = 0; // will always be 0 index because of the way the tx is created  
+    inputObj.output = prevTransaction.outputs[inputObj.outputIndex];
+    inputObj.script = new bitcore.Script();
 
+    let input = new bitcore.Transaction.Input(inputObj);
+    // generate the output. spend the same a
+    
+    // NEED TO HANDLE CHANGE. TAKE OUT OF OUTPUT?
+    let transaction = new bitcore.Transaction()
+        .addInput(input)
+        .to(refundAddress, inputObj.output.satoshis)
+        .lockUntilDate(locktime); // important: set the locktime from which the refund tx becomes valid (ie after deadline expires).
+
+    let signature = getSignatureBuffer(transaction, privateKey, input, 0);
+    let scriptSig = buildScriptSig(signature, redeemScript);
+    input.setScript(scriptSig); // will tx get updated? NEED TO CHECK W/ BREAKPOINTS
+
+    // conduct sanity checks of the transaction. Interpreter.verify()
+    let result = transaction.verify();
+    if (result === true) {
+        return transaction;
+    } else {
+        // result will contain the error message
+        throw new Error(result);
+    }       
 }
 
 
@@ -175,8 +220,8 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
     let inputObj = {};
     inputObj.prevTxId = prevTransaction.hash;
     inputObj.outputIndex = 0; // will always be 0 index because of the way the tx is created  
-    inputObj.output = prevTransaction.outputs[inputObj.outputIndex];
-    inputObj.script = new bitcore.Script();
+    inputObj.output = prevTransaction.outputs[inputObj.outputIndex]; // the output this inputObj is referring to
+    inputObj.script = new bitcore.Script(); // initially empty, need to complete the transaction before generating the scriptSig
 
     let input = new bitcore.Transaction.Input(inputObj);
     // let input = new bitcore.Transaction.Input.PublicKeyHash(inputObj);
@@ -189,8 +234,8 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
     // let transactionSignature = input.getSignatures(transaction, privateKey, 0, SIGHASH_ALL_ANYONECANPAY, pubkeyHash)[0]; //only 1 input, length of returned array = 1
     // transaction.applySignature(transactionSignature);
     
-    let scriptSignatureComponent = getScriptSignatureComponent(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY);
-    let scriptSig = buildScriptSig(scriptSignatureComponent, redeemScript, secret);
+    let signature = getSignatureBuffer(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY);
+    let scriptSig = buildScriptSig(signature, redeemScript, secret);
     input.setScript(scriptSig); // will tx get updated? NEED TO CHECK W/ BREAKPOINTS
 
     // conduct sanity checks of the transaction. Interpreter.verify()
@@ -204,38 +249,24 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
 }
 
 
-function getScriptSignatureComponent(transaction, privateKey, input, index, sigtype) {
-    let pubKeyHash = bitcore.crypto.Hash.sha256ripemd160(privateKey.publicKey.toBuffer());
-
-    // let signatureObject = new bitcore.Transaction.Signature({
-    //     publicKey: privateKey.publicKey,
-    //     prevTxId: input.prevTxId,
-    //     outputIndex: input.outputIndex,
-    //     inputIndex: index,
-    //     signature: bitcore.Transaction.Sighash.sign(transaction, privateKey, sigtype, index, input.output.script),
-    //     sigtype: sigtype
-    // });
-
+function getSignatureBuffer(transaction, privateKey, input, index, sigtype) {
+    sigtype = sigtype || bitcore.crypto.Signature.SIGHASH_ALL;
     let signature = bitcore.Transaction.Sighash.sign(transaction, privateKey, sigtype, index, input.output.script);
-    // will generate script with signature and public key, as used in signature scripts for P2PKH type transactions
-    let scriptSigComponent = bitcore.Script.buildPublicKeyHashIn(privateKey.publicKey, signature.toDER(), sigtype);
-    return scriptSigComponent;
-
-    return Buffer.concat(signature, Buffer.from(sigtype));
+    let sigTypeBuffer = Buffer.from([sigType & 0xff]); //hex??? 
+    return Buffer.concat([signature.toDER(), sigTypeBuffer]);
 }
 
-function trimWhitespace(scriptString) {
-    let trimmed =  scriptString.trim();
-    return trimmed.replace(/\s/g, ' ');
-}
-
-function buildScriptSig(scriptSigComponent, redeemScript, secret) {
+function buildScriptSig(signatureBuffer, redeemScript, secret) {
     // only data pushing operations
     let serializedRedeem = redeemScript.toHex();
-    let script = new Script(scriptSigComponent);
+    let script = new Script(signatureBuffer);
     // appending buffers will automatically handle the length opcodes (e.g. PUSHDATA)
-    script.add(new Buffer(secret, 'hex'));
-    script.add(new Buffer(serializedRedeem, 'hex'));
+    
+    // the secret parameter is optional
+    if (secret) {
+        script.add(Buffer.from(secret, 'hex'));
+    }
+    script.add(Buffer.from(serializedRedeem, 'hex'));
     return script;
 }
 

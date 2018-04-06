@@ -42,17 +42,21 @@ $(document).ready(function() {
 
 /**
  * 
- * @param {object} data The JSON encoded tx inputs returned from the server
+ * @param {object} data 
+ * @param {object[]} data.inputs the JSON encoded tx inputs returned from the server
+ * @param {string} data.secretHash 
+ * @param {string} data.deadline project deadline
  */
 function createLockedOutput(data) {
-    let inputs = data.inputs;
-    let secretHash = data.secretHash;
     // convert the mnemonic to an xpriv key. this will be used for signing.
     let xpriv = keyutils.generateXpriv(this.form_data.mnemonic);
     let cookie = parseCookie();
 
     // create a transaction that creates a UTXO with value equal to the exact amount 
-    let transaction = wallet.createLockedOutput(inputs, Number(this.form_data.amount), secretHash, xpriv, Number(cookie.external_index), Number(cookie.change_index));
+    let result = wallet.createLockedOutput(data.inputs, Number(this.form_data.amount), data.secretHash, xpriv, Number(cookie.external_index), Number(cookie.change_index));
+    let transaction = result.transaction;
+    let redeemScript = result.redeemScript;
+    
     // the transaction is sending the amount to the public key address at external_index. save the private key corresponding to this public key
     this.privateKey = keyutils.derive(xpriv, 'xpriv', `m/0/${cookie.external_index}`).privateKey;
 
@@ -65,7 +69,7 @@ function createLockedOutput(data) {
         },
         success: data => {
             // bind 'this' so that createPartial has access to the private key
-            createPartial.call(this, transaction.toObject(), data)
+            createPartial.call(this, transaction.toObject(), redeemScript, data)
         },
         error: displayError.bind(this.this_form),
         dataType: 'json'
@@ -75,16 +79,18 @@ function createLockedOutput(data) {
 /**
  * 
  * @param {Transaction} prevTransaction The transaction created in {@link createLockedOutput}
+ * @param {Script} redeemScript the redeem script for prevTransaction
  * @param {object} outputInfo The project info
  * @param {string} outputInfo.address 
  * @param {number} outputInfo.fund_goal
  * @param {string} outputInfo.secret the secret token to use as preimage to unlock the output
  */
-function createPartial(prevTransaction, outputInfo) {
+//function makePledgeTransaction
+function createPartial(prevTransaction, redeemScript, outputInfo) {
     outputInfo.fund_goal = Number(outputInfo.fund_goal);
     let secret = outputInfo.secret; 
     // craft the final transaction, making the pledge of the exact amount to the project creator
-    let transaction = wallet.createPartial(prevTransaction, outputInfo, this.privateKey, secret);
+    let transaction = wallet.createPartial(prevTransaction, outputInfo, this.privateKey, redeemScript, secret);
     // just need the input of this transaction - the rest can be recreated
     let input = wallet.getInput(transaction);
 

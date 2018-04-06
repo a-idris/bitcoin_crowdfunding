@@ -96,5 +96,6 @@ create table pledges (
 	foreign key (user_id) references users(user_id) on delete cascade,
 	foreign key (project_id) references projects(project_id) on delete cascade
 );
+--refund_tx text
 
 -- SET FOREIGN_KEY_CHECKS=1;

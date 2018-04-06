@@ -404,7 +404,7 @@ function generateInputs(req, res, project) {
     }
     
     // query the balance of the extended public key which is stored in the cookie
-    blockchain.getBalance(req.cookies.xpub_key) //.then(success, failure)
+    blockchain.getBalance(req.cookies.xpub_key)
     .then(balance => {
         // send responses as json for the client to handle
         if (req.body.amount > balance) {
@@ -421,12 +421,14 @@ function generateInputs(req, res, project) {
     .then(utxos => {
         // choose a subset of these UTXOs that cover the amount needed  
         let inputs = wallet.chooseInputs(utxos, req.body.amount);
+        // send the hash of the secret to be included in the locking script
         let secretToken = Buffer.from(project.token, 'hex');
         let tokenHash = wallet.hash160(secretToken);
         // return the inputs to be created into a transaction
         res.json({
             inputs: inputs,
-            secretHash: tokenHash
+            secretHash: tokenHash,
+            deadline: project.deadline
         });
     }, err => send_json_error(res, err));
 }
