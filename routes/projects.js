@@ -53,6 +53,7 @@ router.post('/create', function (req, res, next) {
     if (validate_create_project(req.body)) {
         //create secret token for the project to be used when unlocking the pledge inputs. 
         let secretToken = crypto.randomBytes(64).toString('hex');
+        console.log("TOKEN", secretToken.length, "==", secretToken);
 
         // start transaction to insert details into projects table and update hd wallet indices
         let transactionConnection;
@@ -423,7 +424,7 @@ function generateInputs(req, res, project) {
         let inputs = wallet.chooseInputs(utxos, req.body.amount);
         // send the hash of the secret to be included in the locking script
         let secretToken = Buffer.from(project.token, 'hex');
-        let tokenHash = wallet.hash160(secretToken);
+        let tokenHash = wallet.hash160(secretToken, true);
         // return the inputs to be created into a transaction
         res.json({
             inputs: inputs,
@@ -492,7 +493,7 @@ function transmitPartial(req, res, project) {
         // save the connection to be used for the transaction
         transactionConnection = connection;
         // create pledge entry in the db
-        query_str = "insert into pledges values (NULL, ?, ?, ?, now())";
+        query_str = "insert into pledges values (NULL, ?, ?, ?, now(), '')";
         var values = [ req.session.user_id, project_id, pledge_amount ]; 
         //returns pledge_id of inserted row
         return db.query(query_str, values, {transactionConnection: transactionConnection});

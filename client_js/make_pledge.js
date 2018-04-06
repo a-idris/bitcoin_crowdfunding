@@ -53,7 +53,7 @@ function createLockedOutput(data) {
     let cookie = parseCookie();
 
     // create a transaction that creates a UTXO with value equal to the exact amount 
-    let result = wallet.createLockedOutput(data.inputs, Number(this.form_data.amount), data.secretHash, xpriv, Number(cookie.external_index), Number(cookie.change_index));
+    let result = wallet.createLockedOutput(data.inputs, Number(this.form_data.amount), data.secretHash, data.deadline, xpriv, Number(cookie.external_index), Number(cookie.change_index));
     let transaction = result.transaction;
     let redeemScript = result.redeemScript;
     

@@ -53,7 +53,7 @@ wallet.chooseInputs = function(utxos, amount, minFee) {
 }
 
 function toBitcoinTime(dateStr) {
-    let unixTime = Date.parse(dateStr);
+    let unixTime = Math.floor(Date.parse(dateStr) / 1000); // returns in milis, convert to seconds
     return unixTime + 3600; // add an hour additional since bitcoin consensus time is approximately one hour behind
 };
 
@@ -87,43 +87,37 @@ wallet.createLockedOutput = function(inputs, amount, secretHash, deadline, xpriv
     // craft the transaction
     let transaction = new bitcore.Transaction().from(utxos);
 
-    let privateKey = key_utils.derive(xpriv, 'xpriv', `m/0/${external_index}`);
+    let privateKey = key_utils.derive(xpriv, 'xpriv', `m/0/${external_index}`).privateKey;
 
     // create the P2SH output
     let locktime = toBitcoinTime(deadline);
-
     let redeemScript = lockedOutputRedeemScript(secretHash, privateKey.publicKey, locktime);
     let output = new bitcore.Transaction.Output({
         script: redeemScript.toScriptHashOut(), // convert to P2SH form
         satoshis: amount
     });
 
-    transaction = transaction.to(output).change(change_address).sign(private_keys);
+    transaction = transaction.addOutput(output).change(change_address).sign(private_keys);
 
     // returns error message if invalid 
     let result = transaction.verify();
     if (result === true) {
-        prevTransaction, refundAddress, privateKey, redeemScript, locktime) {
-
-        let change_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index+1}`));    
-        let refundTransaction = createRefundTransaction(transaction, refundAddress, privateKey, redeemScript, locktime);
+        // let refundAddress = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index+1}`));    
+        // let refundTransaction = createRefundTransaction(transaction, refundAddress, privateKey, redeemScript, locktime);
 
         // return the transaction as well as the redeemScript that will be needed later.
         return { 
             transaction: transaction,
-            redeemScript: redeemScript, 
-            refundTransaction: refundTransaction 
+            redeemScript: redeemScript
+            // , 
+            // refundTransaction: refundTransaction 
         };
     }
     throw new Error(result);
 }
 
-function trimWhitespace(scriptString) {
-    let trimmed =  scriptString.trim();
-    return trimmed.replace(/\s/g, ' ');
-}
-
 /**
+ * Convenience method to convert script strings into Scripts. Handles data pushes and whitespace.
  * 
  * @param {string} scriptString 
  * @param {Buffer[]} dataParams 
@@ -133,13 +127,13 @@ function toScript(scriptString) {
     let tokens = scriptString.split(' ');
 
     let finalScript = tokens.reduce((script, token) => {
-        if (word.startsWith("{")) {
+        if (token.startsWith("<")) {
             // strip 
-            hexString = curr.replace( /{}/g, '' );
-            // add data params as buffers
+            hexString = token.replace( /[<>]/g, '' );
+            // add data params as buffers to be added correctly
             script.add(Buffer.from(hexString, 'hex'));
         } else {
-            script.add(curr);
+            script.add(token);
         }
         return script;
     }, new bitcore.Script());
@@ -147,20 +141,23 @@ function toScript(scriptString) {
     return finalScript;
 }
 
-function lockedOutputRedeemScript(secretHash, publicKey, locktime) {
-    // HASH160(x) == RIPEMD-160(SHA256(x))
+function trimWhitespace(scriptString) {
+    let trimmed =  scriptString.trim();
+    return trimmed.replace(/\s+/g, ' ');
+}
 
+
+function lockedOutputRedeemScript(secretHash, publicKey, locktime) {
     let publicKeyHex = publicKey.toString();
     // hex encode locktime
     let locktimeHex = locktime.toString(16);
 
-    // expect (Signature, Public Key [, secretHash]) as input 
     let scriptString = `
-        OP_HASH160 {${secretHash}} OP_EQUAL
+        OP_HASH160 <${secretHash}> OP_EQUAL
         OP_NOTIF
-            {${locktime}} OP_CHECKTIMELOCKVERIFY OP_DROP
+            <${locktimeHex}> OP_CHECKLOCKTIMEVERIFY OP_DROP
         OP_ENDIF
-        {${publicKeyHex}}
+        <${publicKeyHex}>
         OP_CHECKSIG
     `;
 
@@ -252,16 +249,16 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
 function getSignatureBuffer(transaction, privateKey, input, index, sigtype) {
     sigtype = sigtype || bitcore.crypto.Signature.SIGHASH_ALL;
     let signature = bitcore.Transaction.Sighash.sign(transaction, privateKey, sigtype, index, input.output.script);
-    let sigTypeBuffer = Buffer.from([sigType & 0xff]); //hex??? 
-    return Buffer.concat([signature.toDER(), sigTypeBuffer]);
+    let sigtypeBuffer = Buffer.from([sigtype & 0xff]); //hex??? 
+    return Buffer.concat([signature.toDER(), sigtypeBuffer]);
 }
 
 function buildScriptSig(signatureBuffer, redeemScript, secret) {
     // only data pushing operations
     let serializedRedeem = redeemScript.toHex();
-    let script = new Script(signatureBuffer);
+    let script = new bitcore.Script();
     // appending buffers will automatically handle the length opcodes (e.g. PUSHDATA)
-    
+    script.add(signatureBuffer);
     // the secret parameter is optional
     if (secret) {
         script.add(Buffer.from(secret, 'hex'));
@@ -299,10 +296,11 @@ wallet.compileTransaction = function(pledgeInputs, outputInfo) {
     let transaction = new bitcore.Transaction().to(outputInfo.address, outputInfo.fund_goal);
     
     // attach the inputs to the transaction
-    let inputs = pledgeInputs.map(object => new bitcore.Transaction.Input.PublicKeyHash(object));
+    // let inputs = pledgeInputs.map(object => new bitcore.Transaction.Input.PublicKeyHash(object));
+    let inputs = pledgeInputs.map(object => new bitcore.Transaction.Input(object));
     for (let input of inputs) {
         transaction.addInput(input);
-        input.isFullySigned();
+        // input.isFullySigned();
     }
 
     // // sig checks
@@ -326,8 +324,9 @@ wallet.toSatoshis = function(btc) {
     return bitcore.Unit.fromBTC(btc).toSatoshis();
 }
 
-wallet.hash160 = function(buffer) {
-    return bitcore.crypto.Hash.sha256ripemd160(buffer);
+wallet.hash160 = function(buffer, asString) {
+    let hash =  bitcore.crypto.Hash.sha256ripemd160(buffer);
+    return asString ? hash.toString('hex') : hash;
 }
 
 module.exports = wallet;

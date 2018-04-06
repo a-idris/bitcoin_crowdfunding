@@ -9,7 +9,7 @@ block content
         .form-group
             label(for="password") Password
             input.form-control(type="password", name="password", id="password", placeholder="password", required="true")
-        input(type="hidden", name="xpub_key", id="xpub_key")
+        //- input(type="hidden", name="xpub_key", id="xpub_key")
         button.btn.btn-primary(type="button", data-toggle="modal", data-target="#mnemonic-modal") Register
 
     #mnemonic-modal.modal.fade(tabindex="-1")
@@ -29,6 +29,11 @@ block content
                             label(for="seed_passphrase") Passphrase for wallet seed    
                                 span.text-muted (Optional)
                             input.form-control(type="password", id="seed_passphrase", placeholder="seed passphrase", form="register")
+
+                        p Or import own xpub:
+                        .form-group
+                            label(for="xpub_key") xpub key
+                            input.form-control(type="text", id="xpub_key", name="xpub_key", form="register")
                     .modal-footer
                         button.btn.btn-primary(type="submit", form="register") Continue
                 

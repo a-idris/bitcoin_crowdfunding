@@ -75,7 +75,7 @@ drop table if exists pledge_inputs;
 create table pledge_inputs (
 	input_id int not null auto_increment,
 	pledge_id int not null,
-	prevTxId char(64) not null, -- unique 
+	prevTxId char(128) not null, -- unique 
 	outputIndex int unsigned not null, 
 	sequenceNumber int unsigned not null, 
 	script text not null,
@@ -92,10 +92,10 @@ create table pledges (
 	project_id int not null, 
 	amount bigint unsigned not null,
 	pledge_time datetime not null,
+	refund_tx text,
 	primary key (pledge_id),
 	foreign key (user_id) references users(user_id) on delete cascade,
 	foreign key (project_id) references projects(project_id) on delete cascade
 );
---refund_tx text
 
 -- SET FOREIGN_KEY_CHECKS=1;
