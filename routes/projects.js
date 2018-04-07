@@ -528,18 +528,21 @@ function transmitPartial(req, res) {
     })
     .then(results => {
         // check affectedRows attribute to see if the operation succeeded
-        if (results.affectedRows == 1) {
+        if (results.affectedRows === 1) {
             // commit the transaction
             db.commit(transactionConnection).then(commitSuccess => {
-                console.log("success");
-                res.status(200).json({ status: 200 });
-                // compilePartialTransaction(project_id).then(successStatus => {
-                //     res.status(200).json({ status: 200 });
-                // });
+                console.log("partial Transaction success");
+                // res.status(200).json({ status: 200 });
+                return compilePartialTransaction(project_id);
             });
         } else {
             return Promise.reject(new Error('Update operation failed'));
         }
+    })
+    .then(finished => {
+        let message = finished ? "combined transaction send" : "fund_goal not reached";
+        console.log(message);
+        res.status(200).json({ status: 200 });
     })
     .catch(error => {
         res.status(error.status || 500).json({ 
@@ -551,17 +554,21 @@ function transmitPartial(req, res) {
 
 /** 
  * Check if the project has enough inputs to meet the fund_goal, and if so construct and transmit the funding transaction 
-*/
+ * 
+ * @returns {Promise.<boolean>} whether combined and sent successfully or not 
+ * @throws {Error} rethrows any errors encountered during db calls, transaction crafting, transmission
+ */
 function compilePartialTransaction(project_id) {
     let project;
     let query_str = "select * from projects where project_id=?";
-    db.query(query_str, [project_id])
+    return db.query(query_str, [project_id])
     .then(results => {
         project = results[0];
         if (project) {
             let pledged = Number(project.amount_pledged);
             let goal = Number(project.fund_goal);
             
+            // only if amount pledged exceeds goal, combine the partial transactions. else return false
             if (pledged < goal) {
                 return false;
             } else {
@@ -574,17 +581,28 @@ function compilePartialTransaction(project_id) {
         }
     })
     .then(pledge_inputs => {
-        if (!pledge_inputs.length)
+        if (pledge_inputs === false || !pledge_inputs.length)
             return false;
         
+        // set outputs for the input objects correctly for the bitcore API
+        pledge_inputs = pledge_inputs.map(inputObj => {
+            inputObj.output = {};
+            inputObj.output.satoshis = inputObj.output_satoshis;
+            inputObj.output.script = inputObj.output_script;
+            return inputObj;
+        });
+
         let fundingTransaction = wallet.compileTransaction(pledge_inputs, {
             address: project.address,
             fund_goal: project.fund_goal
         });
 
-        return blockchain.sendTx(fundingTransaction).then(response => {
-            
-            return status == 200;
+        console.log("funding transaction: ", fundingTransaction.toString());
+
+        return blockchain.sendTx(fundingTransaction.serialize()).then(response => {
+            console.log(response);
+            // return whether combined and sent successfully or not
+            return response.status == 200;
         });
     })
     .catch(error => {

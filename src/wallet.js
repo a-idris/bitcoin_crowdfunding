@@ -168,10 +168,16 @@ wallet.compileTransaction = function(pledgeInputs, outputInfo) {
     let transaction = new bitcore.Transaction().to(outputInfo.address, outputInfo.fund_goal);
     
     // attach the inputs to the transaction
-    let inputs = pledgeInputs.map(object => bitcore.Transaction.Input(object));
+    let inputs = pledgeInputs.map(object => new bitcore.Transaction.Input.PublicKeyHash(object));
     for (let input of inputs) {
         transaction.addInput(input);
+        input.isFullySigned();
     }
+
+    // // sig checks
+    // for (let input of inputs) {
+    //     input.isFullySigned();
+    // }
 
     let result = transaction.verify();
     if (result === true) {
