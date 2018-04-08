@@ -238,11 +238,19 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
     // conduct sanity checks of the transaction. Interpreter.verify()
     let result = transaction.verify();
     if (result === true) {
+
+        flags = bitcore.Script.Interpreter.SCRIPT_VERIFY_P2SH | bitcore.Script.Interpreter.SCRIPT_VERIFY_DERSIG | bitcore.Script.Interpreter.SCRIPT_VERIFY_LOW_S | bitcore.Script.Interpreter.SCRIPT_VERIFY_STRICTENC
+        interpretScript(input.script, input.output.script, transaction, 0, flags);
+
         return transaction;
     } else {
         // result will contain the error message
         throw new Error(result);
     }
+}
+
+function interpretScript(scriptSig, scriptPubkey, tx, inputIndex, flags) {
+    bitcore.Script.Interpreter().verify(scriptSig, scriptPubkey, tx, inputIndex, flags);
 }
 
 
