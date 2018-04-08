@@ -531,7 +531,7 @@ function transmitPartial(req, res, project) {
         // check affectedRows attribute to see if the operation succeeded
         if (results.affectedRows === 1) {
             // commit the transaction
-            db.commit(transactionConnection).then(commitSuccess => {
+            return db.commit(transactionConnection).then(commitSuccess => {
                 console.log("partial Transaction success");
                 // res.status(200).json({ status: 200 });
                 return compilePartialTransaction(project_id);
