@@ -24,7 +24,7 @@ $(document).ready(function() {
 */
 function generateAddress() {
     let cookie = parseCookie();
-    var xpub = keyutils.derive(cookie.xpub_key, 'xpub', `M/${cookie.external_index}`);
+    var xpub = keyutils.derive(cookie.xpub_key, 'xpub', `M/0/${cookie.external_index}`);
     // convert to address
     return keyutils.getAddress(xpub).toString();
 }

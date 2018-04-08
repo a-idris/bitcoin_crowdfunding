@@ -81,7 +81,6 @@ wallet.createLockedOutput = function(inputs, amount, secretHash, deadline, xpriv
     let xpub = xpriv.hdPublicKey;
 
     //update INDICES LOGIC
-    // let output_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index}`));    
     let change_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/1/${change_index}`));
     
     // craft the transaction
@@ -146,7 +145,6 @@ function trimWhitespace(scriptString) {
     return trimmed.replace(/\s+/g, ' ');
 }
 
-
 function lockedOutputRedeemScript(secretHash, publicKey, locktime) {
     let publicKeyHex = publicKey.toString();
     // hex encode locktime
@@ -157,7 +155,7 @@ function lockedOutputRedeemScript(secretHash, publicKey, locktime) {
         OP_NOTIF
             <${locktimeHex}> OP_CHECKLOCKTIMEVERIFY OP_DROP
         OP_ENDIF
-        <${publicKeyHex}>
+        <${publicKeyHex}> 
         OP_CHECKSIG
     `;
 
@@ -231,7 +229,7 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
     // let transactionSignature = input.getSignatures(transaction, privateKey, 0, SIGHASH_ALL_ANYONECANPAY, pubkeyHash)[0]; //only 1 input, length of returned array = 1
     // transaction.applySignature(transactionSignature);
     
-    let signature = getSignatureBuffer(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY);
+    let signature = getSignatureBuffer(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY, redeemScript);
     let scriptSig = buildScriptSig(signature, redeemScript, secret);
     input.setScript(scriptSig); // will tx get updated? NEED TO CHECK W/ BREAKPOINTS
 
@@ -239,8 +237,9 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
     let result = transaction.verify();
     if (result === true) {
 
-        flags = bitcore.Script.Interpreter.SCRIPT_VERIFY_P2SH | bitcore.Script.Interpreter.SCRIPT_VERIFY_DERSIG | bitcore.Script.Interpreter.SCRIPT_VERIFY_LOW_S | bitcore.Script.Interpreter.SCRIPT_VERIFY_STRICTENC
-        interpretScript(input.script, input.output.script, transaction, 0, flags);
+        // to verify scripts
+        // flags = bitcore.Script.Interpreter.SCRIPT_VERIFY_P2SH | bitcore.Script.Interpreter.SCRIPT_VERIFY_DERSIG | bitcore.Script.Interpreter.SCRIPT_VERIFY_LOW_S | bitcore.Script.Interpreter.SCRIPT_VERIFY_STRICTENC
+        // interpretScript(input.script, input.output.script, transaction, 0, flags);
 
         return transaction;
     } else {
@@ -253,20 +252,18 @@ function interpretScript(scriptSig, scriptPubkey, tx, inputIndex, flags) {
     bitcore.Script.Interpreter().verify(scriptSig, scriptPubkey, tx, inputIndex, flags);
 }
 
-
-function getSignatureBuffer(transaction, privateKey, input, index, sigtype) {
+function getSignature(transaction, privateKey, input, index, sigtype, redeemScript) {
     sigtype = sigtype || bitcore.crypto.Signature.SIGHASH_ALL;
-    let signature = bitcore.Transaction.Sighash.sign(transaction, privateKey, sigtype, index, input.output.script);
-    let sigtypeBuffer = Buffer.from([sigtype & 0xff]); //hex??? 
-    return Buffer.concat([signature.toDER(), sigtypeBuffer]);
+    let signature = bitcore.Transaction.Sighash.sign(transaction, privateKey, sigtype, index, redeemScript);
+    return bitcore.Script.buildPublicKeyIn(signature.toDER(), sigtype);
 }
 
-function buildScriptSig(signatureBuffer, redeemScript, secret) {
+function buildScriptSig(signature, redeemScript, secret) {
     // only data pushing operations
     let serializedRedeem = redeemScript.toHex();
     let script = new bitcore.Script();
     // appending buffers will automatically handle the length opcodes (e.g. PUSHDATA)
-    script.add(signatureBuffer);
+    script.add(signature);
     // the secret parameter is optional
     if (secret) {
         script.add(Buffer.from(secret, 'hex'));
