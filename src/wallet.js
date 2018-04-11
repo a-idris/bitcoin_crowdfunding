@@ -229,7 +229,7 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
     // let transactionSignature = input.getSignatures(transaction, privateKey, 0, SIGHASH_ALL_ANYONECANPAY, pubkeyHash)[0]; //only 1 input, length of returned array = 1
     // transaction.applySignature(transactionSignature);
     
-    let signature = getSignatureBuffer(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY, redeemScript);
+    let signature = getSignature(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY, redeemScript);
     let scriptSig = buildScriptSig(signature, redeemScript, secret);
     input.setScript(scriptSig); // will tx get updated? NEED TO CHECK W/ BREAKPOINTS
 

@@ -55,7 +55,7 @@ keyutils.derive = function(xkey, type, path) {
     if (type === "xpub") {
         // if arg is HDPublicKey, will return itself. If string will instantiate HDPublicKey
         xkey = new HDPublicKey(xkey); 
-    } else if (type == "xpriv") {
+    } else if (type === "xpriv") {
         xkey = new HDPrivateKey(xkey);
     }
     return xkey.derive(path);

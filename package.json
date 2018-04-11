@@ -5,7 +5,7 @@
   "scripts": {
     "build": "browserify client_js/create_project.js -o public/js/bundle/create_project.js && browserify client_js/make_pledge.js -o public/js/bundle/make_pledge.js && browserify client_js/register.js -o public/js/bundle/register.js",
     "start": "npm run build & node ./bin/www",
-    "devstart": "npm run build & nodemon ./bin/www"
+    "devstart": "npm run build & nodemon --trace-warnings ./bin/www"
   },
   "dependencies": {
     "bcrypt": "^1.0.3",

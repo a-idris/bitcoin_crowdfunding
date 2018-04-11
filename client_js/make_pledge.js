@@ -103,7 +103,8 @@ function createPartial(prevTransaction, redeemScript, outputInfo) {
             amount: this.form_data.amount 
         },
         success: function(data) {
-            // reload? the page should be updated with new project progress
+            // reload the page, updated with new project progress
+            window.location.reload(true);
             console.log("success");
         },
         error: displayError.bind(this.this_form),

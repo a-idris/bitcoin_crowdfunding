@@ -418,7 +418,7 @@ function generateInputs(req, res, project) {
             // get all the UTXOs from addresses derived from the xpub key 
             return blockchain.getUnspent(req.cookies.xpub_key);
         }
-    }, err => send_json_error(res, err))
+    })
     .then(utxos => {
         // choose a subset of these UTXOs that cover the amount needed  
         let inputs = wallet.chooseInputs(utxos, req.body.amount);
@@ -431,7 +431,8 @@ function generateInputs(req, res, project) {
             secretHash: tokenHash,
             deadline: project.deadline
         });
-    }, err => send_json_error(res, err));
+    })
+    .catch(err => send_json_error(res, err));
 }
 
 /**
@@ -600,7 +601,7 @@ function compilePartialTransaction(project_id) {
 
         console.log("funding transaction: ", fundingTransaction.toString());
 
-        return blockchain.sendTx(fundingTransaction.serialize()).then(response => {
+        return blockchain.sendTx(fundingTransaction.serialize({disableIsFullySigned: true})).then(response => {
             console.log(response);
             // return whether combined and sent successfully or not
             return response.status == 200;
