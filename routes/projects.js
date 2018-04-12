@@ -16,7 +16,7 @@ const blockchain = require('../src/api');
 /** Wallet util functions */
 const wallet = require('../src/wallet');
 const crypto = require('crypto');
-
+const scheduler = require('../src/schedule');
 /**
  * Display form to create a project.
  *
@@ -398,7 +398,7 @@ router.post('/:id/make_pledge', function (req, res, next) {
  */
 function generateInputs(req, res, project) {
     if (!validate_make_pledge(req.body, {stage: 'initial'})) {
-        res.status(400).json({ 
+        return res.status(400).json({ 
             status: 400,
             message: "Invalid form data" 
         });
@@ -410,7 +410,7 @@ function generateInputs(req, res, project) {
         // send responses as json for the client to handle
         if (req.body.amount > balance + wallet.getMinFeeEstimate()) {
             // must have funds greater than the pledge amount
-            res.status(400).json({
+            return res.status(400).json({
                 status: 400,
                 message: `Insufficient funds. Balance on wallet is ${balance}`
             });
@@ -488,13 +488,14 @@ function transmitPartial(req, res, project) {
     let refundTransaction = req.body.refund_tx;
 
     if (!validate_make_pledge(txInput, {stage: 'transmitPartial'})) {
-        res.status(400).json({ 
+        return res.status(400).json({ 
             status: 400,
             message: "Malformed transaction input received" 
         });
     }
 
     //schedule the refund transaction transmission
+    scheduler.scheduleRefund(transaction, project.deadline);
 
     //console.log("pledging", req.body);
     let project_id = req.params.id;
@@ -559,7 +560,7 @@ function transmitPartial(req, res, project) {
         if (response.status !== 200) {
             responseData.message = response.message;
         }
-        res.status(200).json(responseData);
+        res.status(response.status).json(responseData);
     })
     .catch(error => send_json_error(res, error)); 
 }
