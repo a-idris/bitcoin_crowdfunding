@@ -56,6 +56,8 @@ function createLockedOutput(data) {
     let result = wallet.createLockedOutput(data.inputs, Number(this.form_data.amount), data.secretHash, data.deadline, xpriv, Number(cookie.external_index), Number(cookie.change_index));
     let transaction = result.transaction;
     let redeemScript = result.redeemScript;
+    // serialize, disabling signature check since the library doesn't recognize custom scripts even though they're correct
+    this.refundTransaction = result.refundTransaction.serialize({disableIsFullySigned: true});
     
     // the transaction is sending the amount to the public key address at external_index. save the private key corresponding to this public key
     this.privateKey = keyutils.derive(xpriv, 'xpriv', `m/0/${cookie.external_index}`).privateKey;
@@ -65,7 +67,8 @@ function createLockedOutput(data) {
         url: this.url, // the same url
         data: { 
             stage: "transmitExactAmount", // the next stage. the server will transmit the transaction
-            serialized_tx: transaction.serialize() 
+            serialized_tx: transaction.serialize(), 
+            refund_tx: this.refundTransaction
         },
         success: data => {
             // bind 'this' so that createPartial has access to the private key
@@ -100,7 +103,8 @@ function createPartial(prevTransaction, redeemScript, outputInfo) {
         data: {     
             stage: "transmitPartial", // signal the stage to the server
             input: JSON.stringify(input), // stringify since nested
-            amount: this.form_data.amount 
+            amount: this.form_data.amount,
+            refund_tx: this.refundTransaction
         },
         success: function(data) {
             // reload the page, updated with new project progress
@@ -130,9 +134,4 @@ function displayError(jqXhr) {
         // if an error message already exists, replace it
         existing_messages.first().text(`Error ${data.status}: ${data.message}`);
     }
-}
-
-
-function displaySuccess(data) {
-
 }

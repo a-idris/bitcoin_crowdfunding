@@ -408,7 +408,7 @@ function generateInputs(req, res, project) {
     blockchain.getBalance(req.cookies.xpub_key)
     .then(balance => {
         // send responses as json for the client to handle
-        if (req.body.amount > balance) {
+        if (req.body.amount > balance + wallet.getMinFeeEstimate()) {
             // must have funds greater than the pledge amount
             res.status(400).json({
                 status: 400,
@@ -446,7 +446,7 @@ function generateInputs(req, res, project) {
 function transmitExactAmount(req, res, project) {
     // the transaction generated will have two outputs, with one external address and one change address. thus wil need to increment accordingly
     let indices_to_set = {
-        external_index: Number(req.cookies.external_index) + 1,
+        external_index: Number(req.cookies.external_index) + 2,
         change_index: Number(req.cookies.change_index) + 1
     }
 
@@ -478,6 +478,7 @@ function transmitExactAmount(req, res, project) {
 function transmitPartial(req, res, project) {
     let txInput = JSON.parse(req.body.input);
     let pledge_amount = Number(req.body.amount); // the amount being pledged.
+    let refundTransaction = req.body.refund_tx;
 
     if (!validate_make_pledge(txInput, {stage: 'transmitPartial'})) {
         res.status(400).json({ 
@@ -485,6 +486,9 @@ function transmitPartial(req, res, project) {
             message: "Malformed transaction input received" 
         });
     }
+
+    //schedule the refund transaction transmission
+
     //console.log("pledging", req.body);
     let project_id = req.params.id;
     let transactionConnection; // will need to use a transaction
@@ -494,8 +498,8 @@ function transmitPartial(req, res, project) {
         // save the connection to be used for the transaction
         transactionConnection = connection;
         // create pledge entry in the db
-        query_str = "insert into pledges values (NULL, ?, ?, ?, now(), '')";
-        var values = [ req.session.user_id, project_id, pledge_amount ]; 
+        query_str = "insert into pledges values (NULL, ?, ?, ?, now(), ?)";
+        var values = [ req.session.user_id, project_id, pledge_amount, refundTransaction ]; 
         //returns pledge_id of inserted row
         return db.query(query_str, values, {transactionConnection: transactionConnection});
     })  

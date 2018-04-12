@@ -7,6 +7,7 @@ const bitcore = require('bitcore-lib');
 const key_utils = require('./key_management');
 
 var wallet = {};
+wallet.MIN_FEE_ESTIMATE = 10000;
 
 /**
  * @typedef tx_output
@@ -31,25 +32,32 @@ var wallet = {};
  */
 wallet.chooseInputs = function(utxos, amount, minFee) {
     // set default minFee. 
-    minFee = minFee || 100000;
+    minFee = minFee || wallet.MIN_FEE_ESTIMATE;
 
     // gather list of inputs to be signed and gathered into a transaction client side 
     let accumAmount = 0;
     let i = 0;
     let inputs = [];
-    while (accumAmount < amount + minFee) {
-        accumAmount += utxos[i].value;
+    for (let utxo of utxos) {
+        accumAmount += utxo.value;
         let inputObj = {
-            'txid': utxos[i].tx_hash_big_endian, 
-            'vout': Number(utxos[i].tx_output_n),
-            'scriptPubKey': utxos[i].script,
-            'satoshis': utxos[i].value, // value is in satoshis
-            'hd_path': utxos[i].xpub.path // append the path to be able to derive the private key for that path (e.g. for signature)
+            'txid': utxo.tx_hash_big_endian, 
+            'vout': Number(utxo.tx_output_n),
+            'scriptPubKey': utxo.script,
+            'satoshis': utxo.value, // value is in satoshis
+            'hd_path': utxo.xpub.path // append the path to be able to derive the private key for that path (e.g. for signature)
         };
         inputs.push(inputObj);
-        i++;
+
+        if (accumAmount > amount + minFee) {
+            return inputs;
+        }
     }
-    return inputs;    
+    return null;    
+}
+
+wallet.getMinFeeEstimate = function() {
+    return wallet.MIN_FEE_ESTIMATE;
 }
 
 function toBitcoinTime(dateStr) {
@@ -101,15 +109,15 @@ wallet.createLockedOutput = function(inputs, amount, secretHash, deadline, xpriv
     // returns error message if invalid 
     let result = transaction.verify();
     if (result === true) {
-        // let refundAddress = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index+1}`));    
-        // let refundTransaction = createRefundTransaction(transaction, refundAddress, privateKey, redeemScript, locktime);
+        // get the address for the next index. use external.
+        let refundAddress = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index+1}`));    
+        let refundTransaction = createRefundTransaction(transaction, refundAddress, privateKey, redeemScript, locktime);
 
         // return the transaction as well as the redeemScript that will be needed later.
         return { 
             transaction: transaction,
-            redeemScript: redeemScript
-            // , 
-            // refundTransaction: refundTransaction 
+            redeemScript: redeemScript, 
+            refundTransaction: refundTransaction 
         };
     }
     throw new Error(result);
@@ -125,11 +133,12 @@ function toScript(scriptString) {
     scriptString = trimWhitespace(scriptString);
     let tokens = scriptString.split(' ');
 
+    // reduce the list of tokens to a script
     let finalScript = tokens.reduce((script, token) => {
         if (token.startsWith("<")) {
             // strip 
             hexString = token.replace( /[<>]/g, '' );
-            // add data params as buffers to be added correctly
+            // add data params as buffers to be added correctly i.e. it will add the appropriate data length opcode
             script.add(Buffer.from(hexString, 'hex'));
         } else {
             script.add(token);
@@ -174,13 +183,15 @@ wallet.createRefundTransaction = function(prevTransaction, refundAddress, privat
     let input = new bitcore.Transaction.Input(inputObj);
     // generate the output. spend the same a
     
-    // NEED TO HANDLE CHANGE. TAKE OUT OF OUTPUT?
+    // need to include a fee. take it out of the output.
+    let amount = inputObj.output.satoshis - wallet.MIN_FEE_ESTIMATE
+
     let transaction = new bitcore.Transaction()
         .addInput(input)
-        .to(refundAddress, inputObj.output.satoshis)
+        .to(refundAddress, amount)
         .lockUntilDate(locktime); // important: set the locktime from which the refund tx becomes valid (ie after deadline expires).
 
-    let signature = getSignatureBuffer(transaction, privateKey, input, 0);
+    let signature = getSignature(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY, redeemScript);
     let scriptSig = buildScriptSig(signature, redeemScript);
     input.setScript(scriptSig); // will tx get updated? NEED TO CHECK W/ BREAKPOINTS
 
@@ -219,15 +230,9 @@ wallet.createPartial = function(prevTransaction, outputInfo, privateKey, redeemS
     inputObj.script = new bitcore.Script(); // initially empty, need to complete the transaction before generating the scriptSig
 
     let input = new bitcore.Transaction.Input(inputObj);
-    // let input = new bitcore.Transaction.Input.PublicKeyHash(inputObj);
     let transaction = new bitcore.Transaction()
         .addInput(input)
         .to(outputInfo.address, outputInfo.fund_goal);
-
-    // let pubkeyHash = bitcore.crypto.Hash.sha256ripemd160(privateKey.publicKey.toBuffer());
-    //  // get the signature for the input and apply it, with sigtype SIGHASH_ALL | SIGHASH_ANYONECANPAY
-    // let transactionSignature = input.getSignatures(transaction, privateKey, 0, SIGHASH_ALL_ANYONECANPAY, pubkeyHash)[0]; //only 1 input, length of returned array = 1
-    // transaction.applySignature(transactionSignature);
     
     let signature = getSignature(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY, redeemScript);
     let scriptSig = buildScriptSig(signature, redeemScript, secret);
@@ -267,6 +272,9 @@ function buildScriptSig(signature, redeemScript, secret) {
     // the secret parameter is optional
     if (secret) {
         script.add(Buffer.from(secret, 'hex'));
+    } else {
+        // add 0 on to stack to be consumed by the hashlock
+        script.add('OP_0');
     }
     script.add(Buffer.from(serializedRedeem, 'hex'));
     return script;
