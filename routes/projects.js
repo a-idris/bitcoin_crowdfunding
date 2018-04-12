@@ -451,7 +451,14 @@ function transmitExactAmount(req, res, project) {
     }
 
     blockchain.sendTx(req.body.serialized_tx)
-    .then(response => update_hd_indices(req, res, indices_to_set))
+    .then(response => {
+        if (response.status !== 200) {
+            let err = new Error(response.message);
+            err.status = response.status;
+            throw err;
+        }
+        update_hd_indices(req, res, indices_to_set);
+    })
     .then(_ => {
         // if successful, update cookies. if failes, cookies aren't updated. keeps db indices and cookie indices in sync
         // if sendTx success but update_hd_indices fails, the addresses will be reused again.
@@ -545,17 +552,16 @@ function transmitPartial(req, res, project) {
             return Promise.reject(new Error('Update operation failed'));
         }
     })
-    .then(finished => {
-        let message = finished ? "combined transaction send" : "fund_goal not reached";
-        console.log(message);
-        res.status(200).json({ status: 200 });
+    .then(response => {
+        let responseData = {
+            status: response.status
+        }
+        if (response.status !== 200) {
+            responseData.message = response.message;
+        }
+        res.status(200).json(responseData);
     })
-    .catch(error => {
-        res.status(error.status || 500).json({ 
-            status: error.status || 500,
-            message: error.message 
-        });
-    }); 
+    .catch(error => send_json_error(res, error)); 
 }
 
 /** 
@@ -605,11 +611,7 @@ function compilePartialTransaction(project_id) {
 
         console.log("funding transaction: ", fundingTransaction.toString());
 
-        return blockchain.sendTx(fundingTransaction.serialize({disableIsFullySigned: true})).then(response => {
-            console.log(response);
-            // return whether combined and sent successfully or not
-            return response.status == 200;
-        });
+        return blockchain.sendTx(fundingTransaction.serialize({disableIsFullySigned: true}));
     })
     .catch(error => {
         throw error;

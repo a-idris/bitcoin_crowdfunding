@@ -111,7 +111,7 @@ wallet.createLockedOutput = function(inputs, amount, secretHash, deadline, xpriv
     if (result === true) {
         // get the address for the next index. use external.
         let refundAddress = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/0/${external_index+1}`));    
-        let refundTransaction = createRefundTransaction(transaction, refundAddress, privateKey, redeemScript, locktime);
+        let refundTransaction = wallet.createRefundTransaction(transaction, refundAddress, privateKey, redeemScript, locktime);
 
         // return the transaction as well as the redeemScript that will be needed later.
         return { 
@@ -154,10 +154,20 @@ function trimWhitespace(scriptString) {
     return trimmed.replace(/\s+/g, ' ');
 }
 
+function changeEndianness(hexString) {
+    let result = [];
+    let startIndex = 0;
+    while (startIndex <= hexString.length - 2) {
+        result.unshift(hexString.substr(startIndex, 2));
+        startIndex += 2;
+    }
+    return result.join('');
+}
+
 function lockedOutputRedeemScript(secretHash, publicKey, locktime) {
     let publicKeyHex = publicKey.toString();
-    // hex encode locktime
-    let locktimeHex = locktime.toString(16);
+    // hex encode locktime. also need to switch endianness
+    let locktimeHex = changeEndianness(locktime.toString(16));
 
     let scriptString = `
         OP_HASH160 <${secretHash}> OP_EQUAL
@@ -184,12 +194,12 @@ wallet.createRefundTransaction = function(prevTransaction, refundAddress, privat
     // generate the output. spend the same a
     
     // need to include a fee. take it out of the output.
-    let amount = inputObj.output.satoshis - wallet.MIN_FEE_ESTIMATE
+    let amount = inputObj.output.satoshis - wallet.MIN_FEE_ESTIMATE;
 
     let transaction = new bitcore.Transaction()
         .addInput(input)
         .to(refundAddress, amount)
-        .lockUntilDate(locktime); // important: set the locktime from which the refund tx becomes valid (ie after deadline expires).
+        .lockUntilDate(locktime + 1); // set the locktime such that it exceeds the deadline encoded in the redeemscript
 
     let signature = getSignature(transaction, privateKey, input, 0, SIGHASH_ALL_ANYONECANPAY, redeemScript);
     let scriptSig = buildScriptSig(signature, redeemScript);
@@ -198,6 +208,10 @@ wallet.createRefundTransaction = function(prevTransaction, refundAddress, privat
     // conduct sanity checks of the transaction. Interpreter.verify()
     let result = transaction.verify();
     if (result === true) {
+        // to verify scripts
+        flags = bitcore.Script.Interpreter.SCRIPT_VERIFY_P2SH | bitcore.Script.Interpreter.SCRIPT_VERIFY_DERSIG | bitcore.Script.Interpreter.SCRIPT_VERIFY_LOW_S | bitcore.Script.Interpreter.SCRIPT_VERIFY_STRICTENC | bitcore.Script.Interpreter.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY
+        interpretScript(input.script, input.output.script, transaction, 0, flags);
+
         return transaction;
     } else {
         // result will contain the error message
