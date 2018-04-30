@@ -6,6 +6,8 @@
 const express = require('express');
 const router = express.Router();
 
+const wallet = require('../src/wallet');
+
 /** 
  * Database wrapper object.
  * @type {Database} 
@@ -23,7 +25,8 @@ router.get('/', function (req, res, next) {
     let query_str = "select * from projects natural join users";
     db.query(query_str)
     .then(results => {
-        res.render('index', { title: '', projects: results });
+        let projects = wallet.convertToBtc(results, ["amount_pledged", "fund_goal"]);
+        res.render('index', { title: '', projects: projects });
     })
     .catch(error => {
         console.log(error);

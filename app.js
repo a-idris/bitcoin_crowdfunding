@@ -34,12 +34,12 @@ var db = require('./src/database').get_db();
 db.open().catch(error => console.log("error opening db"));
 
 //set up the routers 
-var index = require('./routes/index');
-var projects = require('./routes/projects');
-var login = require('./routes/login');
-var logout = require('./routes/logout');
-var register = require('./routes/register');
-var users = require('./routes/users');
+const index = require('./routes/index');
+const projects = require('./routes/projects');
+const login = require('./routes/login');
+const logout = require('./routes/logout');
+const register = require('./routes/register');
+const users = require('./routes/users');
 
 app.use('/', index);
 app.use('/projects', projects);

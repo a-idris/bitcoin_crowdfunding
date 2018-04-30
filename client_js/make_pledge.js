@@ -21,7 +21,7 @@ $(document).ready(function() {
         let context = {};
         context.this_form = this;
         context.form_data = {
-            amount: $(context.this_form).find('input[name=amount]').val(),
+            amount: wallet.toSatoshis($(context.this_form).find('input[name=amount]').val()),
             mnemonic: $(context.this_form).find('input[name=mnemonic]').val()
         };
         context.url = $(context.this_form).attr('action'); // use url from form action attribute

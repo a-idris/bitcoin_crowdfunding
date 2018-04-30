@@ -1,5 +1,5 @@
 const nodeSchedule = require('node-schedule');
-const blockchain = require('src/api');
+const blockchain = require('./api');
 
 var schedule = {};
 

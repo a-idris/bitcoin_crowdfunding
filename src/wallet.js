@@ -62,7 +62,8 @@ wallet.getMinFeeEstimate = function() {
 
 function toBitcoinTime(dateStr) {
     let unixTime = Math.floor(Date.parse(dateStr) / 1000); // returns in milis, convert to seconds
-    return unixTime + 3600; // add an hour additional since bitcoin consensus time is approximately one hour behind
+    return unixTime;
+    // return unixTime + 3600; // add an hour additional since bitcoin consensus time is approximately one hour behind
 };
 
 /**
@@ -345,6 +346,20 @@ wallet.compileTransaction = function(pledgeInputs, outputInfo) {
 
 wallet.toBtc = function(satoshis) {
     return bitcore.Unit.fromSatoshis(satoshis).toBTC();
+}
+
+wallet.convertToBtc = function(objects, properties) {
+    if (!objects || objects.length === 0) 
+        return objects;
+        
+    let converted = objects.map(obj => {
+        for (let prop of properties) {
+            obj[prop] = wallet.toBtc(obj[prop]);
+        }
+        return obj;
+    });
+
+    return converted;
 }
 
 wallet.toSatoshis = function(btc) {

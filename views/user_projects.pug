@@ -15,7 +15,7 @@ block content
                         //- a.card-subtitle.text-muted(href=`users/${project.user_id}`) by #{project.username}
                         p.card-text.mt-3 #{project.short_description}
                         
-                        span.card-text #{project.amount_pledged} of #{project.fund_goal} pledged
+                        span.card-text Pledged: #{project.amount_pledged} of #{project.fund_goal} BTC
                         .progress.progress-thin
                             - 
                                 progress_proportion = (project.amount_pledged / project.fund_goal) * 100

@@ -15,7 +15,7 @@ block content
             textarea.form-control(name="description", id="description", placeholder="description", rows="4")
         .form-group 
             label(for="fund_goal") Fund goal 
-            input.form-control(type="number", name="fund_goal", id="fund_goal", min="1", required="true")
+            input.form-control(type="number", name="fund_goal", id="fund_goal", min="0", step="0.00000001", required="true")
         .form-group 
             label(for="deadline") Deadline 
             input.form-control(type="datetime-local", name="deadline", id="deadline", required="true")

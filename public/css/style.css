@@ -34,3 +34,7 @@ body {
 #mnemonic {
     /* width: 550px; */
 }
+
+.card-group .card {
+    max-width: 260px;
+}

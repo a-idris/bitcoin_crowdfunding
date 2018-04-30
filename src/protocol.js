@@ -1,3 +1,0 @@
-function combinePartialTransaction() {
-    //getSignatures + addSignature
-}

@@ -16,7 +16,7 @@ block content
             p #{project.description}
 
             h4 Progress
-            p #{project.amount_pledged} pledged out of #{project.fund_goal} total
+            p Pledged: #{project.amount_pledged} of #{project.fund_goal} BTC
             .progress
                 - 
                     progress_proportion = (project.amount_pledged / project.fund_goal) * 100
@@ -34,7 +34,7 @@ block content
                 .form-group 
                     label(for="amount") Amount 
                     .input-group
-                        input.form-control(type="number", name="amount", id="amount", min="1", required="true")
+                        input.form-control(type="number", name="amount", id="amount", min="0", step="0.00000001", required="true")
                         .input-group-append
                             span.input-group-text BTC
                 .form-group 

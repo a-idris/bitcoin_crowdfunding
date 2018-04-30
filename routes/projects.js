@@ -61,9 +61,10 @@ router.post('/create', function (req, res, next) {
         .then(connection => {
             // save for easier access
             transactionConnection = connection;
+            let satoshiFundGoal = wallet.toSatoshis(req.body.fund_goal);
             // the initial amount_pledged is set to 0 in the query 
             let query_str = "insert into projects values (NULL, ?, ?, ?, ?, ?, ?, 0, now(), ?, ?)";
-            let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.address, req.body.fund_goal, req.body.deadline, secretToken];
+            let values = [req.session.user_id, req.body.title, req.body.short_description, req.body.description, req.body.address, satoshiFundGoal, req.body.deadline, secretToken];
             return db.query(query_str, values, {transactionConnection: transactionConnection});
         })
         .then(results => { 
@@ -142,6 +143,10 @@ function validate_create_project(submission) {
     if (parsed_date === 'Invalid Date' || isNaN(parsed_date))
         return false;
 
+    // check that deadline is in the future
+    // if (parsed_date < Date.now()) 
+    //     return false;
+
     // all checks passed
     return true;
 }
@@ -161,7 +166,7 @@ router.get('/:id', function (req, res, next) {
     let query_str = "select * from projects natural join users where project_id=?";
     db.query(query_str, [project_id])
     .then(project_results => {
-        project = project_results[0];
+        project = wallet.convertToBtc(project_results, ["amount_pledged", "fund_goal"])[0];
         if (!project) {
             let err = new Error('Project not found');
             err.status = 404;

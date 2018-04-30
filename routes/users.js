@@ -15,6 +15,7 @@ const db = require('../src/database').get_db();
  * Blockchain querying API
 */
 const blockchain = require('../src/api');
+const wallet = require('../src/wallet');
 
 /**
  * Display a list of the registered users.
@@ -61,7 +62,8 @@ router.get('/:id', function(req, res, next) {
         }      
     })
     .then(project_results => {
-        user_projects = project_results;
+        user_projects = wallet.convertToBtc(project_results, ["amount_pledged", "fund_goal"]);
+        
         // only display the personal pledges to the logged in user
         if (req.session && req.session.user_id === user_id) {
             // get the projects' information for which there are pledges by the user (including information on the proejct creators)
@@ -77,14 +79,14 @@ router.get('/:id', function(req, res, next) {
         }
     })
     .then(pledge_results => {
-        user_pledges = pledge_results;
+        user_pledges = wallet.convertToBtc(pledge_results, ["amount", "amount_pledged", "fund_goal"]);
 
         if (req.session && req.session.user_id === user_id) {
             // query the wallet balance info for the user if viewing own profile
             blockchain.getBalance(req.cookies.xpub_key)
             .then(balance => {
-                wallet = {
-                    balance: balance
+                walletInfo = {
+                    balance: wallet.toBtc(balance)
                 };
 
                 res.render('profile', { 
@@ -92,7 +94,7 @@ router.get('/:id', function(req, res, next) {
                     user: user,
                     projects: user_projects,
                     pledges: user_pledges,
-                    wallet: wallet
+                    wallet: walletInfo
                 });    
             });
         } else {
@@ -131,7 +133,8 @@ router.get('/:id/projects', function(req, res, next) {
         }      
     })
     .then(project_results => {
-        user_projects = project_results;
+        user_projects = wallet.convertToBtc(project_results, ["amount_pledged", "fund_goal"]);
+        
         res.render('user_projects', { 
             title: 'projects',
             user: user,
@@ -168,7 +171,7 @@ router.get('/:id/pledges', function(req, res, next) {
     .then(user_pledges => {
         res.render('user_pledges', { 
             title: 'pledges',
-            pledges: user_pledges
+            pledges: wallet.convertToBtc(user_pledges, ["amount", "amount_pledged", "fund_goal"])
         });    
     })
     .catch(error => {

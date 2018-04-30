@@ -41,7 +41,7 @@ block content
                             h4.card-title.mb-0 #{project.title}
                             p.card-text.mt-3 #{project.short_description}
                             
-                            span.card-text #{project.amount_pledged} of #{project.fund_goal} pledged
+                            span.card-text Pledged: #{project.amount_pledged} of #{project.fund_goal} BTC 
                             .progress.progress-thin
                                 - 
                                     progress_proportion = (project.amount_pledged / project.fund_goal) * 100
@@ -72,7 +72,7 @@ block content
                                 h4.card-title.mb-0 #{pledge.title}
                                 p.card-text.mt-3 #{pledge.short_description}
                                 
-                                span.card-text #{pledge.amount_pledged} of #{pledge.fund_goal} pledged
+                                span.card-text Pledged: #{pledge.amount_pledged} of #{pledge.fund_goal} BTC
                                 .progress.progress-thin
                                     - 
                                         progress_proportion = (pledge.amount_pledged / pledge.fund_goal) * 100
