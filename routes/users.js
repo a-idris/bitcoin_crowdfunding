@@ -71,6 +71,7 @@ router.get('/:id', function(req, res, next) {
                         from pledges join projects on pledges.project_id = projects.project_id \
                         join users on projects.user_id = users.user_id \
                         where pledges.user_id=? \
+                        order by pledge_time desc \
                         limit 4";
             return db.query(query_str, [user_id]);
         } else {
@@ -143,7 +144,7 @@ router.get('/:id/projects', function(req, res, next) {
     })
     .catch(error => {
         console.log(error);
-        next(error); // 500 
+        next(error); 
     });
 });
 

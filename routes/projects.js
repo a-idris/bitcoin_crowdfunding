@@ -144,7 +144,7 @@ function validate_create_project(submission) {
         return false;
 
     // check that deadline is in the future
-    // if (parsed_date < Date.now()) 
+    // if (parsed_date.getTime() < Date.now()) 
     //     return false;
 
     // all checks passed
@@ -372,7 +372,16 @@ router.post('/:id/make_pledge', function (req, res, next) {
         let project = results[0];
         if (!project) {
             return Promise.reject(new Error("retrieving project details failed"));
-        }
+        } 
+
+        // return error if deadline has passed
+        let deadlineUnix = new Date(project.deadline).getTime();
+        if (deadlineUnix < Date.now()) 
+            // return Promise.reject(new Error("deadline has passed"));
+
+        // return error if the fund goal has already been reached
+        if (project.amount_pledged > project.fund_goal)
+            return Promise.reject(new Error("the campaign has already ended with the fund goal reached."));
 
         // need multiple client server interactions for this route, so use a body parameter to keep track
         let stage = req.body.stage || "initial";
@@ -389,7 +398,8 @@ router.post('/:id/make_pledge', function (req, res, next) {
             transmitPartial(req, res, project);
             //then(_ => {checkPledges(req,res)})
         }
-    });
+    })
+    .catch(err => send_json_error(res, err));
 });
 
 /**
@@ -500,7 +510,7 @@ function transmitPartial(req, res, project) {
     }
 
     //schedule the refund transaction transmission
-    scheduler.scheduleRefund(transaction, project.deadline);
+    scheduler.scheduleRefund(refundTransaction, project.deadline);
 
     //console.log("pledging", req.body);
     let project_id = req.params.id;
@@ -558,15 +568,21 @@ function transmitPartial(req, res, project) {
             return Promise.reject(new Error('Update operation failed'));
         }
     })
-    .then(response => {
-        let responseData = {
-            status: response.status
-        }
-        if (response.status !== 200) {
-            responseData.message = response.message;
-        }
-        res.status(response.status).json(responseData);
+    .then(finished => {
+        let message = finished ? "combined transaction send" : "fund_goal not reached";
+        console.log(message);
+        res.status(200).json({ status: 200 });
     })
+    // .then(response => {
+    //     let responseData = {
+    //         status: response.status
+    //     }
+    //     if (response.status !== 200) {
+    //         responseData.message = response.message;
+    //     }
+    //     console.log(responseData, response);
+    //     res.status(response.status).json(responseData);
+    // })
     .catch(error => send_json_error(res, error)); 
 }
 
@@ -617,7 +633,11 @@ function compilePartialTransaction(project_id) {
 
         console.log("funding transaction: ", fundingTransaction.toString());
 
-        return blockchain.sendTx(fundingTransaction.serialize({disableIsFullySigned: true}));
+        return blockchain.sendTx(fundingTransaction.serialize({disableIsFullySigned: true})).then(response => {
+            console.log(response);
+            // return whether combined and sent successfully or not
+            return response.status == 200;
+        });
     })
     .catch(error => {
         throw error;

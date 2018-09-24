@@ -19,15 +19,15 @@ var config = {}
 
 config.db = {
 	host: "localhost",
-	user: "aljan",
-	password: "73SmKKaUEc@ZKz",
-	database: "bitcoincrowdfund",
+	user: "",
+	password: "",
+	database: "",
 	connectionLimit: 30
 }
 
 config.session = {
 	name: "session",
-	keys: ["7U#ztuRAqb$ww9"]
+	keys: [""]
 }
 
 config.network = "testnet";

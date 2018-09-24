@@ -22,7 +22,7 @@ var db = require('../src/database').get_db();
  * @route {GET} /
  */
 router.get('/', function (req, res, next) {
-    let query_str = "select * from projects natural join users";
+    let query_str = "select * from projects natural join users order by date_added desc";
     db.query(query_str)
     .then(results => {
         let projects = wallet.convertToBtc(results, ["amount_pledged", "fund_goal"]);

@@ -52,14 +52,6 @@ router.post('/', function(req, res, next) {
         });
     })
     .then(user_id => {
-        // DELETE THIS on deploy. ONLY FOR TESTING
-        let query_str = "select * from mnemonics where user_id=?";
-        return db.query(query_str, [user_id]).then(results => {
-            req.session.mnemonic = results[0].mnemonic;
-            return user_id;
-        });
-    })
-    .then(user_id => {
         req.session.user_id = user_id;
         res.redirect('/');
     })

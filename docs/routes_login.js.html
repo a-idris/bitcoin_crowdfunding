@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: routes/login.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: routes/login.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/** 
+ * Login route module.
+ * @module routes/login
+ * @requires NPM:bcrypt
+*/
+
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcrypt');
+
+/** 
+ * Database wrapper object.
+ * @type {Database}
+*/
+const db = require('../src/database').get_db();
+
+/**
+ * Display login page.
+ *
+ * @name Get login page
+ * @route {GET} /login/
+ */
+router.get('/', function(req, res, next) {
+    res.render('login', {title: 'login'});
+}); 
+
+/**
+ * Authenticates details; loads hd_indices and xpub key as cookies; sets session variables; redirects to index.
+ *
+ * @name Process login attempt
+ * @route {POST} /login/
+ * @bodyparam {string} username
+ * @bodyparam {string} password
+ */
+router.post('/', function(req, res, next) {
+    //return json
+    authenticate(req.body)
+    //.catch(error => console.log)
+    .then(user => {
+        // set the appropriate hd wallet indices so that addresses are used only once. use cookies for client side access, since transaction crafting done on client side
+        let query_str = "select * from hd_indices where user_id=?";        
+        return db.query(query_str, [user.user_id]).then(results => {
+            let indices = results[0];
+            if (indices) {
+                // set xpub_key as cookie so user can create transaction to make project on client side
+                res.cookie('xpub_key', user.xpub_key);
+                res.cookie('change_index', indices.change_index);
+                res.cookie('external_index', indices.external_index);
+                // pass along the user_id
+                return user.user_id;
+            }  
+        });
+    })
+    .then(user_id => {
+        req.session.user_id = user_id;
+        res.redirect('/');
+    })
+    .catch(error => {
+        // res.redirect('/login?error=denied');
+        console.log(error);
+        next(error); // 500 
+    });
+}); 
+
+/**
+ * Will check for the expected properties on login_details. Check that user with that username exists, and then verify the password hash matches.  
+ * 
+ * @param {object} login_details 
+ * @param {string} login_details.username
+ * @param {string} login_details.password
+ * 
+ * @returns {Promise.&lt;object|Error>} A promise that returns a user object if resolved, or an Error if rejected.
+ */
+function authenticate(login_details) {
+    // is nonempty
+    if (!login_details.username || !login_details.password)
+        return Promise.reject(new Error("invalid input details"));
+    // username exists
+    let query_str = `select * from users where username=?`;
+    let auth_promise = db.query(query_str, [login_details.username])
+    .then(results => {
+        if (!results.length) {
+            return Promise.reject(new Error("invalid input details"));
+        } else {
+            // return matching user details
+            return results[0];
+        }
+    })
+    .then(user => {
+        //password hash matches
+        if (user &amp;&amp; bcrypt.compare(login_details.password, user.password_hash)) {
+            // return the user details
+            return user;
+        }
+        return Promise.reject(new Error("invalid input details"));
+    });
+    return auth_promise;
+};
+
+module.exports = router;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-app.html">app</a></li><li><a href="module-client_js_create_project.html">client_js/create_project</a></li><li><a href="module-client_js_make_pledge.html">client_js/make_pledge</a></li><li><a href="module-client_js_register.html">client_js/register</a></li><li><a href="module-config.html">config</a></li><li><a href="module-routes_index.html">routes/index</a></li><li><a href="module-routes_login.html">routes/login</a></li><li><a href="module-routes_logout.html">routes/logout</a></li><li><a href="module-routes_projects.html">routes/projects</a></li><li><a href="module-routes_register.html">routes/register</a></li><li><a href="module-routes_users.html">routes/users</a></li><li><a href="module-src_api.html">src/api</a></li><li><a href="module-src_database.html">src/database</a></li><li><a href="module-src_key_management.html">src/key_management</a></li><li><a href="module-src_wallet.html">src/wallet</a></li></ul><h3>Classes</h3><ul><li><a href="Database.html">Database</a></li></ul><h3>Global</h3><ul><li><a href="global.html#parseCookie">parseCookie</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Wed May 02 2018 11:42:24 GMT+0100 (BST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

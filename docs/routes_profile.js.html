@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: routes/profile.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: routes/profile.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/** 
+ * Registration route module.
+ * @module routes/register
+*/
+
+const express = require('express');
+const router = express.Router();
+/** 
+ * Database wrapper object.
+ * @const
+ * @type {Database}
+*/
+const db = require('../src/database').get_db();
+/** 
+ * Blockchain querying API
+ * @const
+ * @type {Database}
+*/
+const blockchain = require('../src/api');
+
+// list of users
+router.get('/', function(req, res, next) {
+    let query_str = "select * from users";
+    db.query(query_str)
+    .then(results => {
+        res.render('users', {title: 'users', users: results});
+    })
+    .catch(error => {
+        console.log(error);
+        next(error); // 500 
+    });
+});
+
+// specific users
+router.get('/:id', function(req, res, next) {
+    let user_id = req.params.id;
+    let user, user_projects, user_pledges;
+    let query_str = "select * from users where user_id=?";
+    db.query(query_str, [user_id])
+    .then(user_results => {
+        user = user_results[0];
+        if (user) {
+            // get 5 latest projects
+            query_str = "select * from projects where user_id=? order by date_added desc limit 4"
+            return db.query(query_str, [user_id]);
+        } else {
+            let err = new Error('User not found');
+            err.status = 404;
+            return Promise.reject(err);
+        }      
+    })
+    .then(project_results => {
+        user_projects = project_results;
+        // only display the personal pledges to the logged in user
+        if (req.session &amp;&amp; req.session.user_id == user_id) {
+            query_str = "select * \
+                        from pledges join projects on pledges.project_id = projects.project_id \
+                        join users on projects.user_id = users.user_id \
+                        where pledges.user_id=? \
+                        limit 4";
+            return db.query(query_str, [user_id]);
+        } else {
+            return Promise.resolve(null);
+        }
+    })
+    .then(pledge_results => {
+        user_pledges = pledge_results;
+
+        blockchain.getbalance(req.cookies.xpub_key, function(err, balance) {
+            if (err) {
+                return Promise.reject(err);
+            } else {
+                wallet = {
+                    balance: balance
+                };
+
+                res.render('profile', { 
+                    title: 'profile',
+                    user: user,
+                    projects: user_projects,
+                    pledges: user_pledges,
+                    wallet: wallet
+                });    
+            }
+        });
+    })
+    .catch(error => {
+        console.log(error);
+        next(error); // 500 
+    });
+});
+
+// get all the projects submitted by a user
+router.get('/:id/projects', function(req, res, next) {
+    let user_id = req.params.id;
+    let user, user_projects;
+    let query_str = "select * from users where user_id=?";
+    db.query(query_str, [user_id])
+    .then(user_results => {
+        user = user_results[0];
+        if (user) {
+            query_str = "select * from projects where user_id=? order by date_added desc"
+            return db.query(query_str, [user_id]);
+        } else {
+            return Promise.reject(new Error('User not found'));
+        }      
+    })
+    .then(project_results => {
+        user_projects = project_results;
+        res.render('user_projects', { 
+            title: 'projects',
+            user: user,
+            projects: user_projects
+        });    
+    })
+    .catch(error => {
+        console.log(error);
+        next(error); // 500 
+    });
+});
+
+// get all the projects submitted by a user
+router.get('/:id/pledges', function(req, res, next) {
+    let user_id = req.params.id;
+
+    // only user can access own pledges
+    if (req.session.user_id != user_id) {
+        res.redirect('/')
+    }
+
+    // let user_pledges;
+    let query_str = "select * \
+                    from pledges join projects on pledges.project_id = projects.project_id \
+                    join users on projects.user_id = users.user_id \
+                    where pledges.user_id=?";
+    db.query(query_str, [user_id])
+    .then(pledge_results => {
+        let user_pledges = pledge_results;
+        res.render('user_pledges', { 
+            title: 'pledges',
+            pledges: user_pledges
+        });    
+    })
+    .catch(error => {
+        console.log(error);
+        next(error); // 500 
+    });
+});
+
+
+router.get('/:id/settings', function(req, res, next) {
+    // validate session id
+});
+
+module.exports = router;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-app.html">app</a></li><li><a href="module-config.html">config</a></li><li><a href="module-routes_index.html">routes/index</a></li><li><a href="module-routes_login.html">routes/login</a></li><li><a href="module-routes_logout.html">routes/logout</a></li><li><a href="module-routes_register.html">routes/register</a></li><li><a href="module-src_api.html">src/api</a></li><li><a href="module-src_database.html">src/database</a></li></ul><h3>Classes</h3><ul><li><a href="Database.html">Database</a></li></ul><h3><a href="global.html">Global</a></h3>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Fri Apr 06 2018 22:52:32 GMT+0100 (BST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

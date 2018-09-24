@@ -88,8 +88,6 @@ wallet.createLockedOutput = function(inputs, amount, secretHash, deadline, xpriv
     });
 
     let xpub = xpriv.hdPublicKey;
-
-    //update INDICES LOGIC
     let change_address = key_utils.getAddress(key_utils.derive(xpub, 'xpub', `m/1/${change_index}`));
     
     // craft the transaction
@@ -223,10 +221,6 @@ wallet.createRefundTransaction = function(prevTransaction, refundAddress, privat
 
 const SIGHASH_ALL_ANYONECANPAY = bitcore.crypto.Signature.SIGHASH_ALL | bitcore.crypto.Signature.SIGHASH_ANYONECANPAY;
 
-// todo
-// function txOutputToInput(txObj, index)
-// function createPartial(input, output);
-
 /**
  * 
  * @param {*} prevTransaction 
@@ -328,13 +322,7 @@ wallet.compileTransaction = function(pledgeInputs, outputInfo) {
     let inputs = pledgeInputs.map(object => new bitcore.Transaction.Input(object));
     for (let input of inputs) {
         transaction.addInput(input);
-        // input.isFullySigned();
     }
-
-    // // sig checks
-    // for (let input of inputs) {
-    //     input.isFullySigned();
-    // }
 
     let result = transaction.verify();
     if (result === true) {
@@ -351,7 +339,7 @@ wallet.toBtc = function(satoshis) {
 wallet.convertToBtc = function(objects, properties) {
     if (!objects || objects.length === 0) 
         return objects;
-        
+
     let converted = objects.map(obj => {
         for (let prop of properties) {
             obj[prop] = wallet.toBtc(obj[prop]);

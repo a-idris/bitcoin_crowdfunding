@@ -43,7 +43,8 @@ router.get('/', function(req, res, next) {
 });
 
 /**
- * Validate input details. Save details to database. Initialise wallet indices and save to database, as well as setting them and xpub key as cookies. Set session variables; redirect to index.
+ * Validate input details. Save details to database. Initialise wallet indices and save to
+ * database, as well as setting them and xpub key as cookies. Set session variables; redirect to index.
  *
  * @name Process registration
  * @route {POST} /register/
@@ -56,7 +57,7 @@ router.post('/', function(req, res, next) {
 
     validate(req.body)
     .then(registration_details => {
-        // begin transaction. The following SQL statements should be treated as an atomic unit of work to maintain database consistency and validity. 
+        /* begin transaction. The following SQL statements should be treated as an atomic unit of work to maintain database consistency and validity. */
         return db.begin_transaction().then(connection => {
             // save for easier access
             transactionConnection = connection;
@@ -65,12 +66,6 @@ router.post('/', function(req, res, next) {
     })
     .then(registration_details => save_details(registration_details, transactionConnection))
     .then(user_id => init_wallet_indices(user_id, transactionConnection))
-    .then(user_id => {
-        // DELETE THIS on deploy. ONLY FOR TESTING
-        let query_str = "insert into mnemonics values (NULL, ?, ?)";
-        req.session.mnemonic = req.body.mnemonic;
-        return db.query(query_str, [user_id, req.body.mnemonic], { transactionConnection: transactionConnection } ).then(result => user_id);
-    })
     .then(user_id => {
         // commit the transaction
         return db.commit(transactionConnection).then(_ => user_id);
@@ -86,9 +81,8 @@ router.post('/', function(req, res, next) {
         res.redirect(`/users/${user_id}`);
     })
     .catch(err => {
-        // res.redirect('/register?error=denied');
         console.log("registration error:", err);
-        next(err); // 500 
+        next(err);  
     });
 });
 

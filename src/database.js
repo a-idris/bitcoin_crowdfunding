@@ -201,5 +201,3 @@ exports.get_db = function() {
     }
     return instance;
 }
-
-

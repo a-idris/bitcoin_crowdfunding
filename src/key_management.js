@@ -37,6 +37,10 @@ keyutils.validateMnemonic = function(code) {
     return Mnemonic.isValid(code);
 }
 
+keyutils.validateXpub = function(xpubString) {
+    return HDPublicKey.isValidSerialized(xpubString, bitcore.Networks.defaultNetwork);
+}
+
 keyutils.generateXpriv = function (code, seed_passphrase) {
     let mnemonic = new Mnemonic(code);
     let root = mnemonic.toHDPrivateKey(seed_passphrase); //optional passphrase

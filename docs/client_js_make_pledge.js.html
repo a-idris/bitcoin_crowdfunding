@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: client_js/make_pledge.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: client_js/make_pledge.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/** 
+ * Client side code for pledge logic of /projects/:id page. Bundled to /public/js/bundle/make_pledge.js
+ * @module client_js/make_pledge
+ * @requires module:src/key_management
+ * @requires module:src/wallet
+ * */
+
+const wallet = require('../src/wallet');
+const keyutils = require('../src/key_management');
+
+/**
+ * Registers the pledge form submit event listener that will start the interaction. 
+ * 
+ * @callback onReadyCallback
+ */
+$(document).ready(function() {
+    $('form#make_pledge').on('submit', function(event) {
+        event.preventDefault();
+        
+        // use an object to keep track of context
+        let context = {};
+        context.this_form = this;
+        context.form_data = {
+            amount: wallet.toSatoshis($(context.this_form).find('input[name=amount]').val()),
+            mnemonic: $(context.this_form).find('input[name=mnemonic]').val()
+        };
+        context.url = $(context.this_form).attr('action'); // use url from form action attribute
+
+        // make the initial stage post request
+        $.ajax({
+            type: "POST",
+            url: context.url, 
+            data: { 
+                amount: context.form_data.amount
+            }, // don't pass mnemonic 
+            success: createLockedOutput.bind(context), // bind context object to be used as 'this' 
+            error: displayError.bind(context.this_form), // bind form context
+            dataType: 'json'
+        });
+    });
+});
+
+/**
+ * 
+ * @param {object} data 
+ * @param {object[]} data.inputs the JSON encoded tx inputs returned from the server
+ * @param {string} data.secretHash 
+ * @param {string} data.deadline project deadline
+ */
+function createLockedOutput(data) {
+    // convert the mnemonic to an xpriv key. this will be used for signing.
+    let xpriv = keyutils.generateXpriv(this.form_data.mnemonic);
+    let cookie = parseCookie();
+
+    // create a transaction that creates a UTXO with value equal to the exact amount 
+    let result = wallet.createLockedOutput(data.inputs, Number(this.form_data.amount), data.secretHash, data.deadline, xpriv, Number(cookie.external_index), Number(cookie.change_index));
+    let transaction = result.transaction;
+    let redeemScript = result.redeemScript;
+    // serialize, disabling signature check since the library doesn't recognize custom scripts even though they're correct
+    this.refundTransaction = result.refundTransaction.serialize({disableIsFullySigned: true});
+    
+    // the transaction is sending the amount to the public key address at external_index. save the private key corresponding to this public key
+    this.privateKey = keyutils.derive(xpriv, 'xpriv', `m/0/${cookie.external_index}`).privateKey;
+
+    $.ajax({
+        type: "POST",
+        url: this.url, // the same url
+        data: { 
+            stage: "transmitExactAmount", // the next stage. the server will transmit the transaction
+            serialized_tx: transaction.serialize(), 
+            refund_tx: this.refundTransaction
+        },
+        success: data => {
+            // bind 'this' so that createPartial has access to the private key
+            createPartial.call(this, transaction.toObject(), redeemScript, data)
+        },
+        error: displayError.bind(this.this_form),
+        dataType: 'json'
+    });
+}
+
+/**
+ * 
+ * @param {Transaction} prevTransaction The transaction created in {@link createLockedOutput}
+ * @param {Script} redeemScript the redeem script for prevTransaction
+ * @param {object} outputInfo The project info
+ * @param {string} outputInfo.address 
+ * @param {number} outputInfo.fund_goal
+ * @param {string} outputInfo.secret the secret token to use as preimage to unlock the output
+ */
+//function makePledgeTransaction
+function createPartial(prevTransaction, redeemScript, outputInfo) {
+    outputInfo.fund_goal = Number(outputInfo.fund_goal);
+    let secret = outputInfo.secret; 
+    // craft the final transaction, making the pledge of the exact amount to the project creator
+    let transaction = wallet.createPartial(prevTransaction, outputInfo, this.privateKey, redeemScript, secret);
+    // just need the input of this transaction - the rest can be recreated
+    let input = wallet.getInput(transaction);
+
+    $.ajax({
+        type: "POST",
+        url: this.url,
+        data: {     
+            stage: "transmitPartial", // signal the stage to the server
+            input: JSON.stringify(input), // stringify since nested
+            amount: this.form_data.amount,
+            refund_tx: this.refundTransaction
+        },
+        success: function(data) {
+            // reload the page, updated with new project progress
+            window.location.reload(true);
+            console.log("success");
+        },
+        error: displayError.bind(this.this_form),
+        dataType: 'json'
+    });
+}
+
+/**
+ * Display error message to the user. Callback for ajax error handling. 
+ * 
+ * @param {object} jqXhr jquery XMLHttpRequest object
+ * @param {object} jqXhr.responseJSON the response json
+ */
+function displayError(jqXhr) {
+    let data = jqXhr.responseJSON;
+    console.log("error", data.status, data.message);
+    // append error message to the form
+    let error_msg = $('&lt;p>').addClass("text-danger error-message").text(`Error ${data.status}: ${data.message}`);
+    var existing_messages = $(this).children('p.error-message');
+    if (existing_messages.length == 0) {
+        $(this).append(error_msg);
+    } else {
+        // if an error message already exists, replace it
+        existing_messages.first().text(`Error ${data.status}: ${data.message}`);
+    }
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-app.html">app</a></li><li><a href="module-client_js_create_project.html">client_js/create_project</a></li><li><a href="module-client_js_make_pledge.html">client_js/make_pledge</a></li><li><a href="module-client_js_register.html">client_js/register</a></li><li><a href="module-config.html">config</a></li><li><a href="module-routes_index.html">routes/index</a></li><li><a href="module-routes_login.html">routes/login</a></li><li><a href="module-routes_logout.html">routes/logout</a></li><li><a href="module-routes_projects.html">routes/projects</a></li><li><a href="module-routes_register.html">routes/register</a></li><li><a href="module-routes_users.html">routes/users</a></li><li><a href="module-src_api.html">src/api</a></li><li><a href="module-src_database.html">src/database</a></li><li><a href="module-src_key_management.html">src/key_management</a></li><li><a href="module-src_wallet.html">src/wallet</a></li></ul><h3>Classes</h3><ul><li><a href="Database.html">Database</a></li></ul><h3>Global</h3><ul><li><a href="global.html#parseCookie">parseCookie</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Wed May 02 2018 11:42:24 GMT+0100 (BST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

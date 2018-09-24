@@ -1,4 +1,3 @@
--- https://www.cyberciti.biz/faq/howto-install-mysql-on-ubuntu-linux-16-04/
 -- SET FOREIGN_KEY_CHECKS=0;
 
 drop table if exists users;
@@ -12,15 +11,6 @@ create table users (
 	unique (username)
 );
 
-drop table if exists mnemonics;
-create table mnemonics (
-	mnemonic_id int not null auto_increment,
-	user_id int not null,
-	mnemonic varchar(100) not null,
-	primary key (mnemonic_id),
-	foreign key (user_id) references users(user_id) on delete cascade
-);
-
 drop table if exists hd_indices;
 create table hd_indices (
 	index_id int not null auto_increment,
@@ -31,15 +21,15 @@ create table hd_indices (
 	foreign key (user_id) references users(user_id) on delete cascade
 );
 
-drop table if exists projects; -- currency?, rewards?, media / images
+drop table if exists projects; 
 create table projects (
 	project_id int not null auto_increment,
 	user_id int not null,
 	title varchar(50) not null, 
 	short_description varchar(80) default null, 
-	description text default null, -- blob
-	address varchar(40) not null, -- blob , unique, length(35)
-	fund_goal bigint not null, -- float
+	description text default null, 
+	address varchar(40) not null,
+	fund_goal bigint not null, 
 	amount_pledged bigint default 0,
 	date_added datetime not null,
 	deadline datetime,
@@ -48,7 +38,7 @@ create table projects (
 	foreign key (user_id) references users(user_id) on delete cascade
 );
 
-drop table if exists project_updates; -- currency?
+drop table if exists project_updates; 
 create table project_updates (
 	project_update_id int not null auto_increment,
 	project_id int not null,
@@ -58,7 +48,6 @@ create table project_updates (
 	foreign key (project_id) references projects(project_id) on delete cascade
 );
 
--- dont delete comment if user deletes acc? 
 drop table if exists project_comments; 
 create table project_comments (
 	project_comment_id int not null auto_increment,

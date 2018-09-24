@@ -15,17 +15,25 @@ $(document).ready(function() {
     $("#mnemonic").val(keyutils.generateMnemonic().toString());
 
     $('form#register').on('submit', function(event) {
-        let code = $('#mnemonic').val();
-        // validate the mnemonic first
-        if (keyutils.validateMnemonic(code)) {
-            let seed_passphrase = $('seed_passphrase').val();
-            let xpub = keyutils.generateXpub(code, seed_passphrase).toString();
-            // set the form field
-            $('#xpub_key').val(xpub);
+        // prioritise a user imported xpub
+        let xpubStr = $('#xpub_key').val();
+        if (xpubStr) {
+            if (!keyutils.validateXpub(xpubStr)) {
+                event.preventDefault();
+                console.log("Error");
+            }
         } else {
-            event.preventDefault();
-            // todo: handle invalid mnemonic
-            console.log("Error");
+            let code = $('#mnemonic').val();
+            // validate the mnemonic first
+            if (keyutils.validateMnemonic(code)) {
+                let seed_passphrase = $('seed_passphrase').val();
+                let xpub = keyutils.generateXpub(code, seed_passphrase).toString();
+                // set the form field
+                $('#xpub_key').val(xpub);
+            } else {
+                event.preventDefault();
+                console.log("Error");
+            }   
         }
     });
 });
